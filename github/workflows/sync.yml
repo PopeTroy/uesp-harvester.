@@ -1,0 +1,27 @@
+name: UESP Daily Harvester
+on:
+  schedule:
+    - cron: '0 6 * * *' # Runs at 6:00 AM UTC daily
+  workflow_dispatch: # This adds a manual "Run" button
+
+jobs:
+  run-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Requirements
+        run: pip install requests
+
+      - name: Execute Harvester
+        env:
+          WP_USERNAME: ${{ secrets.WP_USERNAME }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+        run: python harvester.py
