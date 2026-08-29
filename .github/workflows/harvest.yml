@@ -112,8 +112,8 @@ EOF
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
-          INJECTED_TITLE: ${{ github.event.inputs.issue_title }}
-          INJECTED_DETAIL: ${{ github.event.inputs.issue_detail }}
+          INJECTED_TITLE: ${{ inputs.issue_title || 'Quantum Dilation & Ergonomic Audit' }}
+          INJECTED_DETAIL: ${{ inputs.issue_detail || 'AVX2 SIMD and DDPG Policy Verification under 1:6000 quantum dilation.' }}
         run: python harvester.py
 
       - name: Upload PDF Diagnostic Artifact to GitHub
