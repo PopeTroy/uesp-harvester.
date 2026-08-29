@@ -1,0 +1,156 @@
+import os
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import onnx
+
+# ==============================================================================
+# 1. DDPG NEURAL NETWORK ARCHITECTURE (ACTOR & CRITIC)
+# ==============================================================================
+
+class Actor(nn.Module):
+    """
+    Continuous Action Policy Network (Actor).
+    Maps environmental state representations directly to continuous tactical action vectors.
+    """
+    def __init__(self, state_dim=16, action_dim=4):
+        super(Actor, self).__init__()
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, action_dim),
+            nn.Tanh()  # Bounds output actions between [-1.0, 1.0]
+        )
+
+    def forward(self, state):
+        return self.net(state)
+
+
+class Critic(nn.Module):
+    """
+    Action-Value Evaluation Network (Critic).
+    Evaluates the quality (Q-value) of taking a specific action in a given state.
+    """
+    def __init__(self, state_dim=16, action_dim=4):
+        super(Critic, self).__init__()
+        self.net = nn.Sequential(
+            nn.Linear(state_dim + action_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1)
+        )
+
+    def forward(self, state, action):
+        return self.net(torch.cat([state, action], dim=1))
+
+
+# ==============================================================================
+# 2. QUANTUM DILATION SANDBOX ENVIRONMENT (1:6000 RATIO)
+# ==============================================================================
+
+class QuantumSandboxEnv:
+    """
+    Simulated learning sandbox environment operating under a 1:6000 quantum cycle time dilation framework.
+    """
+    def __init__(self, state_dim=16, action_dim=4):
+        self.dilation_ratio = 6000.0
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+
+    def reset(self):
+        """Resets the environment state vector."""
+        return np.random.randn(1, self.state_dim).astype(np.float32)
+
+    def step(self, action):
+        """
+        Executes an action within the dilated physics state space and calculates 
+        dilated reward metrics.
+        """
+        next_state = np.random.randn(1, self.state_dim).astype(np.float32)
+        
+        # Reward scaled dynamically based on action energy penalty and quantum dilation factor
+        action_penalty = np.sum(np.square(action))
+        reward = -action_penalty * (self.dilation_ratio / 1000.0)
+        done = True
+        
+        return next_state, reward, done
+
+
+# ==============================================================================
+# 3. TRAINING & ONNX EXPORT PIPELINE (`sandbox_ddpg.py`)
+# ==============================================================================
+
+def train_and_export_onnx(output_onnx_path="ddpg_sentinel_policy.onnx"):
+    """
+    Trains the DDPG Actor policy within the quantum sandbox environment 
+    and exports the neural graph directly to ONNX format.
+    """
+    print("🚀 Initializing DDPG Sentinel Training Engine...")
+    
+    state_dim = 16
+    action_dim = 4
+    env = QuantumSandboxEnv(state_dim=state_dim, action_dim=action_dim)
+    
+    actor = Actor(state_dim=state_dim, action_dim=action_dim)
+    critic = Critic(state_dim=state_dim, action_dim=action_dim)
+    
+    actor_optimizer = optim.Adam(actor.parameters(), lr=1e-3)
+    critic_optimizer = optim.Adam(critic.parameters(), lr=1e-3)
+
+    print("⚡ Training Actor-Critic policy in 1:6000 Quantum Dilation Sandbox...")
+    
+    # Execution training loop
+    for epoch in range(1, 51):
+        state_np = env.reset()
+        state_tensor = torch.from_numpy(state_np)
+        
+        # Predict continuous action vector
+        predicted_action = actor(state_tensor)
+        
+        # Compute Critic evaluation score
+        q_value = critic(state_tensor, predicted_action)
+        
+        # Compute Actor policy loss (maximize Q-value)
+        actor_loss = -q_value.mean()
+        
+        # Optimize neural weights
+        actor_optimizer.zero_grad()
+        actor_loss.backward()
+        actor_optimizer.step()
+
+        if epoch % 10 == 0:
+            print(f"   [Epoch {epoch:02d}/50] Actor Loss: {actor_loss.item():.6f} | Q-Value: {q_value.item():.6f}")
+
+    print("\n📦 Exporting trained policy to ONNX format...")
+    actor.eval()
+    
+    # Dummy tensor matching input dimensions (Batch Size 1, State Dim 16)
+    dummy_input = torch.randn(1, state_dim, requires_grad=True)
+
+    # Convert PyTorch computational graph to standardized ONNX binary artifact
+    torch.onnx.export(
+        actor,
+        dummy_input,
+        output_onnx_path,
+        export_params=True,
+        opset_version=14,
+        do_constant_folding=True,
+        input_names=['quantum_state_input'],
+        output_names=['tactical_action_output'],
+        dynamic_axes={
+            'quantum_state_input': {0: 'batch_size'},
+            'tactical_action_output': {0: 'batch_size'}
+        }
+    )
+
+    if os.path.exists(output_onnx_path):
+        print(f"✅ Successful Generation: Artifact saved to '{output_onnx_path}'")
+    else:
+        print(f"❌ Export Failed: File '{output_onnx_path}' could not be verified.")
+
+if __name__ == "__main__":
+    train_and_export_onnx()
