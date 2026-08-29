@@ -1,4 +1,4 @@
-name: UESP Quantum Harvester & PDF Artifact Engine
+Name: UESP Quantum Harvester & PDF Artifact Engine
 
 on:
   workflow_dispatch:
@@ -41,7 +41,8 @@ jobs:
 
       - name: Build and Install Rust Extension (Maturin)
         run: |
-          maturin develop --release
+          maturin build --release
+          pip install target/wheels/*.whl --force-reinstall
 
       - name: Train DDPG Policy & Export ONNX Model
         run: python sandbox_ddpg.py
