@@ -41,61 +41,57 @@ jobs:
 
       - name: Ensure Rust Files Exist
         run: |
+          mkdir -p src
           if [ ! -f "Cargo.toml" ]; then
-            echo "Cargo.toml missing on runner! Creating Cargo.toml dynamically..."
-            mkdir -p src
-            cat << 'EOF' > Cargo.toml
-[package]
-name = "uesp_quantum_core"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-name = "uesp_quantum_core"
-crate-type = ["cdylib", "rlib"]
-
-[dependencies]
-tokio = { version = "1.38", features = ["full"] }
-sha2 = "0.10"
-chrono = "0.4"
-pyo3 = { version = "0.20", features = ["extension-module"] }
-
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-EOF
-
-            cat << 'EOF' > src/lib.rs
-use pyo3::prelude::*;
-use sha2::{Sha256, Digest};
-use chrono::Utc;
-
-#[pyfunction]
-fn generate_ecta_session_id(user_payload: &str) -> PyResult<String> {
-    let now = Utc::now();
-    let ecta_timestamp = now.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string();
-    let dilated_quantum_ticks = now.timestamp_nanos_opt().unwrap_or(0) * 6000;
-    let raw_seed = format!("ECTA_SEC58_VALIDATED::{}:{}:DILATION_6000::{}", ecta_timestamp, dilated_quantum_ticks, user_payload);
-    let mut hasher = Sha256::new();
-    hasher.update(raw_seed.as_bytes());
-    let hash_result = hasher.finalize();
-    Ok(format!("UESP-SESSION-{:x}", hash_result))
-}
-
-#[pyfunction]
-fn avx2_quantum_tensor_transform(data: Vec<f32>) -> PyResult<Vec<f32>> {
-    let output: Vec<f32> = data.iter().map(|x| x * 6000.0).collect();
-    Ok(output)
-}
-
-#[pymodule]
-fn uesp_quantum_core(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(generate_ecta_session_id, m)?)?;
-    m.add_function(wrap_pyfunction!(avx2_quantum_tensor_transform, m)?)?;
-    Ok(())
-}
-EOF
+            echo '[package]' > Cargo.toml
+            echo 'name = "uesp_quantum_core"' >> Cargo.toml
+            echo 'version = "0.1.0"' >> Cargo.toml
+            echo 'edition = "2021"' >> Cargo.toml
+            echo '' >> Cargo.toml
+            echo '[lib]' >> Cargo.toml
+            echo 'name = "uesp_quantum_core"' >> Cargo.toml
+            echo 'crate-type = ["cdylib", "rlib"]' >> Cargo.toml
+            echo '' >> Cargo.toml
+            echo '[dependencies]' >> Cargo.toml
+            echo 'tokio = { version = "1.38", features = ["full"] }' >> Cargo.toml
+            echo 'sha2 = "0.10"' >> Cargo.toml
+            echo 'chrono = "0.4"' >> Cargo.toml
+            echo 'pyo3 = { version = "0.20", features = ["extension-module"] }' >> Cargo.toml
+            echo '' >> Cargo.toml
+            echo '[profile.release]' >> Cargo.toml
+            echo 'opt-level = 3' >> Cargo.toml
+            echo 'lto = true' >> Cargo.toml
+            echo 'codegen-units = 1' >> Cargo.toml
+          fi
+          if [ ! -f "src/lib.rs" ]; then
+            echo 'use pyo3::prelude me::*;' > src/lib.rs
+            echo 'use sha2::{Sha256, Digest};' >> src/lib.rs
+            echo 'use chrono::Utc;' >> src/lib.rs
+            echo '' >> src/lib.rs
+            echo '#[pyfunction]' >> src/lib.rs
+            echo 'fn generate_ecta_session_id(user_payload: &str) -> PyResult<String> {' >> src/lib.rs
+            echo '    let now = Utc::now();' >> src/lib.rs
+            echo '    let ecta_timestamp = now.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string();' >> src/lib.rs
+            echo '    let dilated_quantum_ticks = now.timestamp_nanos_opt().unwrap_or(0) * 6000;' >> src/lib.rs
+            echo '    let raw_seed = format!("ECTA_SEC58_VALIDATED::{}:{}:DILATION_6000::{}", ecta_timestamp, dilated_quantum_ticks, user_payload);' >> src/lib.rs
+            echo '    let mut hasher = Sha256::new();' >> src/lib.rs
+            echo '    hasher.update(raw_seed.as_bytes());' >> src/lib.rs
+            echo '    let hash_result = hasher.finalize();' >> src/lib.rs
+            echo '    Ok(format!("UESP-SESSION-{:x}", hash_result))' >> src/lib.rs
+            echo '}' >> src/lib.rs
+            echo '' >> src/lib.rs
+            echo '#[pyfunction]' >> src/lib.rs
+            echo 'fn avx2_quantum_tensor_transform(data: Vec<f32>) -> PyResult<Vec<f32>> {' >> src/lib.rs
+            echo '    let output: Vec<f32> = data.iter().map(|x| x * 6000.0).collect();' >> src/lib.rs
+            echo '    Ok(output)' >> src/lib.rs
+            echo '}' >> src/lib.rs
+            echo '' >> src/lib.rs
+            echo '#[pymodule]' >> src/lib.rs
+            echo 'fn uesp_quantum_core(_py: Python, m: &PyModule) -> PyResult<()> {' >> src/lib.rs
+            echo '    m.add_function(wrap_pyfunction!(generate_ecta_session_id, m)?)?;' >> src/lib.rs
+            echo '    m.add_function(wrap_pyfunction!(avx2_quantum_tensor_transform, m)?)?;' >> src/lib.rs
+            echo '    Ok(())' >> src/lib.rs
+            echo '}' >> src/lib.rs
           fi
 
       - name: Build and Install Rust Extension (Maturin)
