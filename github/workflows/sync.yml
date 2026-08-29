@@ -1,27 +1,40 @@
-name: UESP Daily Harvester
+name: UESP Diagnostic Engine & PDF Generator
+
 on:
-  schedule:
-    - cron: '0 6 * * *' # Runs at 6:00 AM UTC daily
-  workflow_dispatch: # This adds a manual "Run" button
+  workflow_dispatch:
+    inputs:
+      user_issue:
+        description: 'Input Issue Details for Diagnostic Resolution'
+        required: true
+        default: 'Ergonomic structural alignment issue'
 
 jobs:
-  run-sync:
+  build-and-sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.11'
 
-      - name: Install Requirements
-        run: pip install requests
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests reportlab
 
-      - name: Execute Harvester
+      - name: Run Harvester Engine & PDF Builder
         env:
           WP_USERNAME: ${{ secrets.WP_USERNAME }}
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
-          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          USER_ISSUE_INPUT: ${{ github.event.inputs.user_issue }}
         run: python harvester.py
+
+      - name: Archive Generated PDF as Artifact on GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-pdf-reports
+          path: '*.pdf'
