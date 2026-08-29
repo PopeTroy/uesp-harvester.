@@ -1,40 +1,52 @@
-name: UESP Diagnostic Engine & PDF Generator
+name: UESP Diagnostic Harvester & Artifact Generator
 
 on:
+  # Manual dispatch for UI injection or WordPress REST triggers
   workflow_dispatch:
     inputs:
-      user_issue:
-        description: 'Input Issue Details for Diagnostic Resolution'
+      issue_title:
+        description: 'Diagnostic Issue Title'
         required: true
-        default: 'Ergonomic structural alignment issue'
+        default: 'Ergonomic & Physics Diagnostic'
+      issue_detail:
+        description: 'Detailed Issue Payload / User Input'
+        required: true
+        default: 'System physical balance failure under load.'
+  # Daily automated run
+  schedule:
+    - cron: '0 6 * * *'
 
 jobs:
-  build-and-sync:
+  execute-engine:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests reportlab
+          pip install -r requirements.txt
 
-      - name: Run Harvester Engine & PDF Builder
+      - name: Run Harvester & PDF Generator
         env:
           WP_USERNAME: ${{ secrets.WP_USERNAME }}
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          USER_ISSUE_INPUT: ${{ github.event.inputs.user_issue }}
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          INJECTED_TITLE: ${{ github.event.inputs.issue_title }}
+          INJECTED_DETAIL: ${{ github.event.inputs.issue_detail }}
         run: python harvester.py
 
-      - name: Archive Generated PDF as Artifact on GitHub
+      - name: Store PDF Artifact on GitHub
         uses: actions/upload-artifact@v4
         with:
-          name: diagnostic-pdf-reports
-          path: '*.pdf'
+          name: uesp-diagnostic-pdf
+          path: "*.pdf"
