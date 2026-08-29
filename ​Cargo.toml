@@ -17,4 +17,4 @@ pyo3 = { version = "0.20", features = ["extension-module"] }
 opt-level = 3
 lto = true
 codegen-units = 1
-target-cpu = "native" # Enables AVX2 SIMD acceleration
+target-cpu = "native"
