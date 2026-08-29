@@ -1,4 +1,4 @@
-import os
+llllimport os
 import requests
 import onnxruntime as ort
 import numpy as np
@@ -21,7 +21,7 @@ NVIDIA_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
 
 COMPANY_DETAILS = """
 <b>Celsius Tech Media Group</b><br/>
-Email: info@celsiusmediagroup.co.za<br/>
+Email: info@celsiustechmediagroup.co.za<br/>
 Web: celsiustechmediagroup.co.za<br/>
 Engine: UESP / PRCE Resolution Protocol
 """
