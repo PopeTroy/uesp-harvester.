@@ -1,23 +1,21 @@
-name: UESP Diagnostic Harvester & Artifact Generator
+name: UESP Quantum Harvester & PDF Artifact Engine
 
 on:
-  # Manual dispatch for UI injection or WordPress REST triggers
   workflow_dispatch:
     inputs:
       issue_title:
         description: 'Diagnostic Issue Title'
         required: true
-        default: 'Ergonomic & Physics Diagnostic'
+        default: 'Quantum Dilation & Ergonomic Audit'
       issue_detail:
         description: 'Detailed Issue Payload / User Input'
         required: true
-        default: 'System physical balance failure under load.'
-  # Daily automated run
+        default: 'AVX2 SIMD and DDPG Policy Verification under 1:6000 quantum dilation.'
   schedule:
     - cron: '0 6 * * *'
 
 jobs:
-  execute-engine:
+  build-and-execute:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,12 +28,26 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install Dependencies
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Install Python Dependencies & Maturin
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Harvester & PDF Generator
+      - name: Build and Install Rust AVX2 Extension (PyO3)
+        run: |
+          maturin build --release
+          pip install target/wheels/*.whl
+
+      - name: Train DDPG Policy & Export ONNX Model
+        run: python sandbox_ddpg.py
+
+      - name: Execute Harvester & PDF Artifact Engine
         env:
           WP_USERNAME: ${{ secrets.WP_USERNAME }}
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
@@ -45,8 +57,8 @@ jobs:
           INJECTED_DETAIL: ${{ github.event.inputs.issue_detail }}
         run: python harvester.py
 
-      - name: Store PDF Artifact on GitHub
+      - name: Upload PDF Diagnostic Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
-          name: uesp-diagnostic-pdf
+          name: uesp-ecta-pdf-reports
           path: "*.pdf"
