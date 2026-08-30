@@ -1,8 +1,11 @@
 import os
+import time
+import requests
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
+import onnxruntime as ort
 
 # ==============================================================================
 # 1. DDPG NEURAL NETWORK ARCHITECTURE (UGPE-OMEGA SENTINEL)
@@ -195,5 +198,63 @@ def train_and_export_onnx(output_onnx_path="ddpg_sentinel_policy.onnx"):
     else:
         print(f"❌ Export Failed: File '{output_onnx_path}' could not be verified.")
 
+
+# ==============================================================================
+# 5. LIVE TELEMETRY & ONNX INFERENCE ENGINE
+# ==============================================================================
+
+def fetch_live_telemetry_state(state_dim=16) -> np.ndarray:
+    """
+    Fetches real-time environmental features from free public endpoints
+    and constructs a normalized 16-dimensional DDPG input state tensor.
+    """
+    state_vector = np.zeros(state_dim, dtype=np.float32)
+    
+    try:
+        # 1. Fetch live network & ISP metrics via IP-API
+        ip_res = requests.get("http://ip-api.com/json/", timeout=3).json()
+        lat = float(ip_res.get("lat", 0.0)) / 90.0    # Normalized latitude
+        lon = float(ip_res.get("lon", 0.0)) / 180.0   # Normalized longitude
+        
+        # 2. Fetch precise Unix timestamp via WorldTimeAPI
+        time_res = requests.get("http://worldtimeapi.org/api/timezone/Etc/UTC", timeout=3).json()
+        unixtime = float(time_res.get("unixtime", time.time())) % 10000 / 10000.0
+
+        # Populate state indices
+        state_vector[0] = lat
+        state_vector[1] = lon
+        state_vector[2] = unixtime
+        
+    except Exception as e:
+        print(f"[WARN] Telemetry fetch failed ({e}); populating with baseline values.")
+        state_vector[:3] = np.random.randn(3).astype(np.float32)
+
+    # Fill remaining dimension slots with simulated tensor signals
+    state_vector[3:] = np.random.randn(state_dim - 3).astype(np.float32)
+    
+    # Reshape to (Batch Size = 1, State Dim = 16)
+    return np.expand_dims(state_vector, axis=0)
+
+def run_telemetry_onnx_inference(onnx_path="ddpg_sentinel_policy.onnx"):
+    """
+    Runs an inference execution pass using live API telemetry inputs.
+    """
+    # Build state tensor from live API inputs
+    input_state = fetch_live_telemetry_state(state_dim=16)
+    print(f"📡 Processed State Vector Head: {input_state[0, :4]}")
+
+    # Load ONNX Session and Run Inference
+    session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
+    input_name = session.get_inputs()[0].name
+    output_name = session.get_outputs()[0].name
+
+    action_output = session.run([output_name], {input_name: input_state})[0]
+    print(f"✅ Executed Policy Action Output: {action_output[0]}")
+
+
 if __name__ == "__main__":
+    # 1. Train model and generate ONNX binary
     train_and_export_onnx()
+    
+    # 2. Perform live telemetry fetch and run inference
+    run_telemetry_onnx_inference()
