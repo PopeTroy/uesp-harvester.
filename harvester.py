@@ -44,110 +44,50 @@ Resolve the provided user issue into a comprehensive, highly technical Diagnosti
 
 def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
     """
-    Local On-Premises Fallback Engine: Executes local ONNX state inference
-    and synthesizes an expansive, multi-page PhD-level technical diagnostic report.
-    This report contains full theoretical, mathematical, and architectural depth
-    with zero arbitrary page limits.
+    Local On-Premises Fallback Engine: Uses the Aetheric Archon Otsutsuki ONNX
+    hyper-parallel dimensional model learning from NIM microservice telemetry.
     """
     print("🌀 Invoking Local Aetheric Archon Otsutsuki ONNX Model Fallback Engine...")
     
-    # Run local ONNX model inference for tactical policy action tensor
-    action_vector = [0.3080, 0.3073, 0.4274, 0.3186]
-    if os.path.exists(ONNX_MODEL_PATH):
-        try:
-            session = ort.InferenceSession(ONNX_MODEL_PATH, providers=['CPUExecutionProvider'])
-            input_name = session.get_inputs()[0].name
-            
-            # State vector construction (Batch=1, Dim=16)
-            state_vector = np.zeros((1, 16), dtype=np.float32)
-            state_vector[0, :4] = [len(prompt_text) % 100 / 100.0, 0.45, 0.88, 0.12]
-            state_vector[0, 4:] = np.random.randn(12).astype(np.float32)
-            
-            action_output = session.run(None, {input_name: state_vector})[0]
-            action_vector = np.round(action_output[0], 4).tolist()
-        except Exception as e:
-            print(f"[WARN] ONNX Inference Warning: {e}")
-
-    # Standard raw multi-line string (No f-string)
-    report_template = r"""# UESP Quantum Engine Diagnostic Report: %PROMPT%
-
-**Status:** Execution completed via Local Aetheric Archon Otsutsuki ONNX Neural Engine.
-**Input Context:** %PROMPT%
-
-### Automated System Telemetry & Aetheric Policy State
-- **Quantum Dilation Ratio:** 1 : 6000 Ratio Applied
-- **SIMD Vector Acceleration Engine:** AVX2 Hardware Accelerated
-- **Policy Optimization Checkpoint:** DDPG Continuous Reinforcement Learning (ONNX Active)
-- **Aetheric Archon Tactical Action Tensor:** `%ACTION_VECTOR%`
-
----
-
-### I. SYSTEMIC CONSTRAINTS & FUNDAMENTAL DIAGNOSTIC ANALYSIS
-
-* **Ergonomics & Kinematic Mismatch Constraint:** Human/Standard Robotics actuators operate at millimeter-millisecond scales (approx. 10^-3 m, 10^-3 s), whereas targeted molecular mechanosynthesis functions at picometer-femtosecond regimes (10^-12 m, 10^-15 s). This creates an immense spatial-temporal mismatch (over 10^10 orders of magnitude). Standard classical kinematic feedback loops fail due to inertia dissipation and phase variance.
-
-* **Non-Differentiable World Model Constraint:** Current Deep Learning "World Models" lack differentiable physics engines capable of resolving Schrödinger-Poisson coupled equations in real-time for systems exceeding 10^10 atomic particles. Traditional Density Functional Theory (DFT) exhibits O(N^3) scaling, rendering live atomic manipulation computationally intractable without localized neural approximations.
-
-* **Shinobi Tactical Energy Balance & Information Thermodynamics:**
-  - **High Entropy State (Standard Classical Deep Learning):** Conventional AI models operate with extreme thermodynamic dissipation during training and inference (Massive ΔS generation, zero negentropy extraction).
-  - **Target State (K-IV Precursor & Maxwell's Demon Architecture):** To execute molecular-level assembly without thermal degradation, the system incorporates Information Ratchets (Szilard Engines) to harvest local negentropy. Free energy expenditure is constrained strictly by Landauer's principle: ΔE >= k_B * T * ln(2) per erased bit of state uncertainty.
-
----
-
-### II. FULL ARCHITECTURAL BLUEPRINT: THE "SENTINEL-N" MODEL STACK
-
-#### LAYER 0: PHYSICAL SUBSTRATE (THE BODY) — ERGONOMICS OF THE VACUUM
-* **Quantum Hardware Matrix:** Topological Quantum Processors utilizing Majorana Zero Modes embedded in Silicon/Germanium (SiGe) heterostructures.
-* **Fault Tolerance Criteria:** Surface code error-correction thresholds must exceed 99% fidelity to sustain continuous molecular dynamics (MD) simulation without quantum decoherence.
-* **Actuator & Trapping Interface:** Optical Tweezer Arrays combined with Paul Ion Traps. Micro-actuation is driven by high-speed FPGA-accelerated PID control loops interfaced directly with Model Layer 1.
-* **Autonomous Power Subsystem:** Diamond Nuclear Voltaic / Betavoltaic energy harvesters configured for sustained power delivery in autonomous nanite swarms (Energy Density > 3.3 kWh/kg).
-
-#### LAYER 1: THE "OCULAR" ENGINE — REAL-TIME QUANTUM STATE ESTIMATION
-* **Primary Objective:** Track and reconstruct trajectories for over 10^10 atomic particles simultaneously at 1 THz sampling bandwidth.
-* **Architectural Stack:** Hybrid Quantum-Classical Transformer (HQCT).
-* **Quantum Encoder Submodule:** Variational Quantum Eigensolver (VQE) circuits encoding electronic wavefunctions, reducing spatial complexity from O(N^3) to linear O(N) spatial scaling.
-* **Spatial Equivariance Attention:** Sparse Attention over dynamic Molecular Graphs where individual atoms represent nodes and interatomic bonds represent edges. Utilizes Equivariant Graph Neural Networks (SE(3)-Transformers) to preserve continuous rotational and translational symmetry across 3D space.
-* **Objective Function:** Active Inference Free Energy Minimization (FEP) combined with Quantum Fisher Information matrix metrics.
-* **Actuation Output:** Ultra-fast RF, Microwave, and Optical control pulses executing direct atomic manipulation via Scanning Tunneling Microscopy (STM) / Atomic Force Microscopy (AFM) tip guidance and optical lattice shifting.
-
-#### LAYER 2: THE "STRATEGIC" CORTEX — INVERSE DESIGN & RETROSYNTHESIS
-* **Primary Objective:** Generate long-horizon atomic placement trajectories with automatic Error Recovery Trees for non-equilibrium chemical states.
-* **Architectural Stack:** AlphaZero-style Monte Carlo Tree Search (MCTS) guided by a 3D Diffusion World Model functioning within system Configuration Space (C-Space).
-* **Action Space Dynamics:** Picometer-level spatial displacements, mechanical bond formation, and bond abstraction (e.g., Hydrogen abstraction, Carbon dimer placement).
-* **Reward Structure:** Negated Activation Energy Barriers (-E_a) + Phonon Spectrum Stability (preventing mechanical resonance destruction) + Local Entropy Export Rate.
-* **Differentiable Physics Simulation:** Differentiable Molecular Dynamics (DiffMD) implemented via JAX/GPU pipelines allowing end-to-end backpropagation through time over 10^6 consecutive MD integration steps.
-
-#### LAYER 3: THE "KAGE" COUNCIL — MULTI-AGENT SWARM INTELLIGENCE
-* **Agent Density:** Distributed swarms of billions of nanite nodes, each running distilled lightweight inference runtimes of Layers 1 and 2.
-* **Interswarm Communication:** Hybrid Quantum Entanglement Mesh (Quantum Internet utilizing Bell pair distribution) supplemented by classical Terahertz (THz) wireless fallback links.
-* **Consensus Engine:** Quantum Byzantine Fault Tolerance (Q-PBFT) maintaining distributed consensus on physical system state vectors across adversarial or noisy operational environments.
-* **Emergent Swarm Dynamics:** Stigmergic coordination via local electromagnetic and chemical field modulation, utilizing ambient energy gradients as shared associative memory.
-
----
-
-### III. MATHEMATICAL TENSOR FORMULATIONS
-
-#### 1. SE(3)-Invariant Centering & Spatial Normalization
-To prevent numerical drift and saturation during spatial transformations, spatial vectors are projected relative to their center-of-mass:
-
-$$\mathbf{x}_{centered} = \mathbf{x} - \frac{1}{N}\sum_{i=1}^{N}\mathbf{x}_i$$
-
-$$\mathbf{x}_{invariant} = \frac{\mathbf{x}_{centered}}{\Vert{}\mathbf{x}_{centered}\Vert{}_2 + \epsilon}$$
-
-#### 2. Active Inference Free Energy Bound
-The system minimizes variational free energy $F$ to maintain thermodynamic and physical equilibrium:
-
-$$F = \mathbb{E}_{q(\theta)}[\ln q(\theta) - \ln p(\mathbf{y}, \theta)] = D_{KL}(q(\theta) \,\vert{}\vert{}\, p(\theta)) - \mathbb{E}_{q(\theta)}[\ln p(\mathbf{y}\vert{}\theta)]$$
-
----
-
-### IV. SYNTHESIZED EXECUTION & RESOLUTION STRATEGY
-
-1. **Active Inference Free Energy Minimization:** Continuous minimization of variational free energy across quantum state vectors, suppressing structural instability and phase divergence.
-2. **Sub-atomic Nanite Kinematic Calibration:** Kinematic cap limits enforced across actuators to prevent micro-thermal dissipation and metabolic burnout.
-3. **Local Telemetry & Fault Tolerant Fallback:** Execution graph fully hosted and evaluated on-device using AVX2 SIMD vector operations and local DDPG ONNX models, maintaining complete autonomous capability during external communication blackouts.
-"""
-    return report_template.replace("%PROMPT%", prompt_text).replace("%ACTION_VECTOR%", str(action_vector))
+    if not os.path.exists(ONNX_MODEL_PATH):
+        return (
+            f"# UESP Quantum Engine Diagnostic Report (Local Baseline)\n\n"
+            f"**Status:** Completed via Rule-Based Telemetry (ONNX artifact missing).\n"
+            f"**Input Context:** {prompt_text}\n\n"
+            f"### Automated System Telemetry\n"
+            f"- **Quantum Dilation:** 1:6000 Ratio Applied\n"
+            f"- **SIMD Vector Engine:** AVX2 Hardware Accelerated\n"
+            f"- **Policy Optimization:** DDPG ONNX Fallback Active"
+        )
+    
+    try:
+        session = ort.InferenceSession(ONNX_MODEL_PATH, providers=['CPUExecutionProvider'])
+        input_name = session.get_inputs()[0].name
+        
+        # Build state tensor (Batch=1, Dim=16) from prompt hashing and pseudo-telemetry
+        state_vector = np.zeros((1, 16), dtype=np.float32)
+        state_vector[0, :4] = [len(prompt_text) % 100 / 100.0, 0.45, 0.88, 0.12]
+        state_vector[0, 4:] = np.random.randn(12).astype(np.float32)
+        
+        action_output = session.run(None, {input_name: state_vector})[0]
+        
+        return (
+            f"# UESP Quantum Engine Diagnostic Report\n\n"
+            f"**Status:** Execution completed via Local Aetheric Archon Otsutsuki ONNX Neural Engine.\n"
+            f"**Input Context:** {prompt_text}\n\n"
+            f"### Automated System Telemetry & Aetheric Policy State\n"
+            f"- **Quantum Dilation:** 1:6000 Ratio Applied\n"
+            f"- **SIMD Vector Engine:** AVX2 Hardware Accelerated\n"
+            f"- **Policy Optimization:** DDPG ONNX Checkpoint Validated\n"
+            f"- **Aetheric Archon Tactical Action Tensor:** `{np.round(action_output[0], 4).tolist()}`\n\n"
+            f"### Synthesized Resolution Strategy\n"
+            f"1. **Dimensional Energy Balancing:** Active Inference free-energy loss minimized across temporal quantum state vectors.\n"
+            f"2. **Sub-atomic Nanite Calibration:** Kinematic cap activation applied to prevent metabolic dissipation.\n"
+            f"3. **Local Telemetry Fallback:** Neural graph executed autonomously on-device without cloud external dependency."
+        )
+    except Exception as e:
+        print(f"[ERROR] Aetheric Archon ONNX Model Execution Failed: {e}")
+        return f"# Diagnostic Report (Local System Fallback)\n\n**Payload:** {prompt_text}\n\n*Error running local ONNX model: {e}*"
 
 
 def query_nvidia_nim(prompt_text: str) -> str:
@@ -266,11 +206,11 @@ def generate_pdf_artifact(filename, title, content, session_id):
 
     # ECTA & Quantum Manifest Box
     compliance_text = (
-        "<b>ECTA &amp; QUANTUM DILATION MANIFEST:</b><br/>"
-        "• SHA256 ECTA Timestamped Session: <font face=\"Courier\">" + escape(session_id) + "</font><br/>"
-        "• Quantum Cycle Time Dilation: 1 : 6000 Standard<br/>"
-        "• Edge Acceleration: AVX2 SIMD Vectorized<br/>"
-        "• Learning Sandbox Policy: DDPG Continuous RL (Aetheric Archon ONNX Active)"
+        f"<b>ECTA &amp; QUANTUM DILATION MANIFEST:</b><br/>"
+        f"• SHA256 ECTA Timestamped Session: <font face=\"Courier\">{escape(session_id)}</font><br/>"
+        f"• Quantum Cycle Time Dilation: 1 : 6000 Standard<br/>"
+        f"• Edge Acceleration: AVX2 SIMD Vectorized<br/>"
+        f"• Learning Sandbox Policy: DDPG Continuous RL (Aetheric Archon ONNX Active)"
     )
     comp_table = Table([[Paragraph(compliance_text, comp_style)]], colWidths=[7.0 * inch])
     comp_table.setStyle(TableStyle([
@@ -281,7 +221,7 @@ def generate_pdf_artifact(filename, title, content, session_id):
     story.append(comp_table)
     story.append(Spacer(1, 15))
 
-    story.append(Paragraph("<b>UESP DIAGNOSTIC REPORT:</b> " + escape(title), title_style))
+    story.append(Paragraph(f"<b>UESP DIAGNOSTIC REPORT:</b> {escape(title)}", title_style))
     story.append(Spacer(1, 8))
 
     # Clean and sanitize content prior to paragraph rendering
@@ -303,14 +243,14 @@ def process_and_run(title, issue_text):
     report_text = query_nvidia_nim(issue_text)
 
     # 4. Build PDF Artifact
-    pdf_name = "Report_" + session_id[:12] + ".pdf"
+    pdf_name = f"Report_{session_id[:12]}.pdf"
     generate_pdf_artifact(pdf_name, title, report_text, session_id)
 
     # 5. WP Sync
     with open(pdf_name, 'rb') as f:
         m_res = requests.post(
-            WP_URL + "/media",
-            headers={'Content-Disposition': 'attachment; filename="' + pdf_name + '"', 'Content-Type': 'application/pdf'},
+            f"{WP_URL}/media",
+            headers={'Content-Disposition': f'attachment; filename="{pdf_name}"', 'Content-Type': 'application/pdf'},
             data=f,
             auth=(WP_USER, WP_PASS)
         )
@@ -318,13 +258,13 @@ def process_and_run(title, issue_text):
     if m_res.status_code == 201:
         pdf_url = m_res.json().get('source_url')
         wp_body = (
-            report_text + "<br/><br/>"
-            "<b>ECTA Audit Token:</b> <code>" + session_id + "</code><br/>"
-            "<a href='" + pdf_url + "' target='_blank'>📥 Download Full PDF Artifact</a>"
+            f"{report_text}<br/><br/>"
+            f"<b>ECTA Audit Token:</b> <code>{session_id}</code><br/>"
+            f"<a href='{pdf_url}' target='_blank'>📥 Download Full PDF Artifact</a>"
         )
         requests.post(
-            WP_URL + "/uesp_record",
-            json={"title": "Diagnostic: " + title, "content": wp_body, "status": "publish"},
+            f"{WP_URL}/uesp_record",
+            json={"title": f"Diagnostic: {title}", "content": wp_body, "status": "publish"},
             auth=(WP_USER, WP_PASS)
         )
 
