@@ -25,8 +25,16 @@ NVIDIA_KEY = os.getenv("NVIDIA_API_KEY")
 
 LOGO_URL = "https://celsiustechmediagroup.co.za/wp-content/uploads/2026/01/CTMG.webp"
 
-# Target local downloadable container endpoint explicitly
-DEFAULT_LOCAL_ENDPOINT = "http://localhost:8000/v1/chat/completions"
+# STRICT OVERRIDE: Force local NIM endpoint regardless of process environment variables
+LOCAL_CONTAINER_ENDPOINT = "http://localhost:8000/v1/chat/completions"
+
+# Neutralize any incoming broken NVIDIA cloud endpoints at startup
+env_ep = os.getenv("NVIDIA_ENDPOINT", "")
+if not env_ep or "integrate.api.nvidia.com" in env_ep or "api.nvidia.com" in env_ep:
+    NVIDIA_ENDPOINT = LOCAL_CONTAINER_ENDPOINT
+else:
+    NVIDIA_ENDPOINT = env_ep
+
 NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
 
 COMPANY_DETAILS = """
@@ -113,12 +121,10 @@ class SafePlainTextFlowable(Flowable):
 
 
 def query_nvidia_nim(prompt_text: str) -> str:
-    # Strictly prefer local host over external integrate.api.nvidia.com
-    env_endpoint = os.getenv("LOCAL_NIM_ENDPOINT") or os.getenv("NVIDIA_ENDPOINT")
-    if not env_endpoint or "integrate.api.nvidia.com" in env_endpoint:
-        endpoint = DEFAULT_LOCAL_ENDPOINT
-    else:
-        endpoint = env_endpoint
+    # Double-check and enforce the endpoint strictly
+    endpoint = NVIDIA_ENDPOINT
+    if "api.nvidia.com" in endpoint:
+        endpoint = LOCAL_CONTAINER_ENDPOINT
 
     api_key = os.getenv("NVIDIA_API_KEY", NVIDIA_KEY)
 
