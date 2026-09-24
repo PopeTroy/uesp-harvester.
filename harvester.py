@@ -100,10 +100,10 @@ def query_nvidia_nim(prompt_text: str) -> str:
 def sanitize_inline_markdown(text: str) -> str:
     """
     Safely cleans markdown text and converts inline tags to strict, balanced XML tags.
-    Strips all italic tags entirely to prevent ReportLab parsing exceptions.
+    Completely removes any HTML tags before escaping to avoid orphaned or malformed tags.
     """
-    # 1. Strip all raw HTML/XML italic tags completely
-    clean = re.sub(r'</?i[^>]*>', '', text, flags=re.IGNORECASE)
+    # 1. Strip ALL pre-existing raw HTML/XML tags completely
+    clean = re.sub(r'<[^>]+>', '', text)
 
     # 2. Escape raw XML reserved characters (&, <, >)
     clean = escape(clean)
@@ -114,11 +114,8 @@ def sanitize_inline_markdown(text: str) -> str:
     # 4. Convert double-asterisk bold **text** -> <b>text</b>
     clean = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', clean)
 
-    # 5. Remove lingering single asterisks, underscores, or math-related stars
+    # 5. Strip all remaining asterisks and underscores to prevent unexpected tags
     clean = clean.replace('*', '').replace('_', '')
-
-    # 6. Final safety check: scrub any surviving italic closing tags
-    clean = re.sub(r'</?i[^>]*>', '', clean, flags=re.IGNORECASE)
 
     return clean
 
