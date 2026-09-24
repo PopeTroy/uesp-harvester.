@@ -1,6 +1,7 @@
 import os
 import time
 import re
+import html
 from xml.sax.saxutils import escape
 import requests
 from requests.adapters import HTTPAdapter
@@ -69,7 +70,6 @@ def query_nvidia_nim(prompt_text: str) -> str:
         "max_tokens": 2048
     }
 
-    # Setup session with exponential backoff retries
     session = requests.Session()
     retries = Retry(
         total=3,
@@ -80,7 +80,6 @@ def query_nvidia_nim(prompt_text: str) -> str:
     session.mount("https://", HTTPAdapter(max_retries=retries))
 
     try:
-        # Extended timeout: (connect_timeout=15s, read_timeout=180s)
         response = session.post(endpoint, headers=headers, json=payload, timeout=(15, 180))
         response.raise_for_status()
         data = response.json()
@@ -100,40 +99,50 @@ def query_nvidia_nim(prompt_text: str) -> str:
 
 def sanitize_inline_markdown(text: str) -> str:
     """
-    Strips raw HTML tags and converts markdown formatting into safe, clean text 
-    that ReportLab's XML parser can render without crashing.
+    Completely sanitizes incoming model text to prevent ReportLab XML parse errors.
+    Nuke all raw/escaped HTML tags, converts bold/italic via placeholders, and escapes XML.
     """
-    # 1. Strip pre-existing HTML tags (e.g., <i>, </i>, <para>) entirely
-    clean = re.sub(r'<[^>]+>', '', text)
+    # 1. Unescape html entities first (turns &lt;i&gt; back into <i> so regex catches them)
+    clean = html.unescape(text)
 
-    # 2. Convert LaTeX and math symbols to plain text
+    # 2. Strip ALL pre-existing HTML/XML tags completely
+    clean = re.sub(r'<[^>]+>', '', clean)
+
+    # 3. Strip LaTeX expressions and backslashes
     clean = clean.replace('$', '')
     clean = re.sub(r'\\text\{([^}]+)\}', r'\1', clean)
-    clean = clean.replace(r'\times', 'x').replace(r'\approx', '~').replace(r'\sim', '~')
+    clean = clean.replace(r'\times', 'x').replace(r'\approx', '~').replace(r'\sim', '~').replace('\\', '')
 
-    # 3. Escape XML special characters FIRST (&, <, >) so raw tags are disabled
+    # 4. Extract valid Markdown bold **text** into safe placeholders
+    bold_matches = []
+    def sub_bold(m):
+        bold_matches.append(m.group(1))
+        return f"___SAFE_BOLD_{len(bold_matches)-1}___"
+    clean = re.sub(r'\*\*([^*]+)\*\*', sub_bold, clean)
+
+    # 5. Extract valid Markdown italic *text* or _text_ into safe placeholders
+    italic_matches = []
+    def sub_italic(m):
+        italic_matches.append(m.group(1))
+        return f"___SAFE_ITALIC_{len(italic_matches)-1}___"
+    clean = re.sub(r'\*([^*]+)\*', sub_italic, clean)
+    clean = re.sub(r'_([^_]+)_', sub_italic, clean)
+
+    # 6. Remove any remaining stray asterisks, underscores, or angle brackets that aren't matched
+    clean = clean.replace('*', '').replace('_', '').replace('>', '').replace('<', '')
+
+    # 7. Safe XML escape reserved characters (& -> &amp;, etc.)
     clean = escape(clean)
 
-    # 4. Handle Markdown bold (**text**) -> <b>text</b> cleanly
-    clean = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', clean)
-
-    # 5. Convert Markdown italic (*text* or _text_) -> <i>text</i> safely
-    clean = re.sub(r'\*([^*]+)\*', r'<i>\1</i>', clean)
-    clean = re.sub(r'_([^_]+)_', r'<i>\1</i>', clean)
-
-    # 6. Convert backticks `code` -> <font face="Courier">code</font>
-    clean = re.sub(r'`([^`]+)`', r'<font face="Courier">\1</font>', clean)
-
-    # 7. Clean up any leftover stray asterisks or underscores to prevent unclosed tags
-    # If an odd number of asterisks or backslashes remained, strip them out
-    clean = clean.replace('\\', '')
+    # 8. Re-insert formatted tags safely from clean placeholders
+    for i, content in enumerate(bold_matches):
+        clean = clean.replace(f"___SAFE_BOLD_{i}___", f"<b>{escape(content)}</b>")
+    for i, content in enumerate(italic_matches):
+        clean = clean.replace(f"___SAFE_ITALIC_{i}___", f"<i>{escape(content)}</i>")
 
     return clean
 
 def format_text_to_story(text: str, story: list, styles: dict):
-    """
-    Parses dynamic markdown content and converts it line-by-line into flowable elements.
-    """
     lines = text.split('\n')
     
     h1_style = ParagraphStyle('ReportH1', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=13, leading=16, textColor=colors.HexColor('#003366'), spaceBefore=10, spaceAfter=4)
@@ -147,7 +156,6 @@ def format_text_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 4))
             continue
 
-        # Strip block headers and list characters from raw line BEFORE sanitizing
         if line_str.startswith('# '):
             content = line_str[2:].strip()
             story.append(Paragraph(sanitize_inline_markdown(content), h1_style))
@@ -157,11 +165,8 @@ def format_text_to_story(text: str, story: list, styles: dict):
         elif line_str.startswith('### '):
             content = line_str[4:].strip()
             story.append(Paragraph(sanitize_inline_markdown(content), h2_style))
-        elif line_str.startswith('- ') or line_str.startswith('* '):
-            content = line_str[2:].strip()
-            story.append(Paragraph(f"• {sanitize_inline_markdown(content)}", bullet_style))
-        elif line_str.startswith('> '):
-            content = line_str[2:].strip()
+        elif line_str.startswith('- ') or line_str.startswith('* ') or line_str.startswith('> '):
+            content = re.sub(r'^[-*>]\s*', '', line_str).strip()
             story.append(Paragraph(f"• {sanitize_inline_markdown(content)}", bullet_style))
         else:
             story.append(Paragraph(sanitize_inline_markdown(line_str), body_style))
@@ -189,7 +194,6 @@ def generate_pdf_artifact(filename, title, content, session_id):
     story.append(header_table)
     story.append(Spacer(1, 10))
 
-    # ECTA & Quantum Manifest Box
     compliance_text = (
         f"<b>ECTA &amp; QUANTUM DILATION MANIFEST:</b><br/>"
         f"• SHA256 ECTA Timestamped Session: <font face=\"Courier\">{escape(session_id)}</font><br/>"
@@ -209,33 +213,26 @@ def generate_pdf_artifact(filename, title, content, session_id):
     story.append(Paragraph(f"<b>UESP DIAGNOSTIC REPORT:</b> {escape(title)}", title_style))
     story.append(Spacer(1, 8))
 
-    # Parse multi-page dynamic output directly into story flowables
     format_text_to_story(content, story, styles)
 
     doc.build(story)
 
 def process_and_run(title, issue_text):
-    # 1. Rust SHA256 Session Generation
     session_id = uesp_quantum_core.generate_ecta_session_id(issue_text)
 
-    # 2. AVX2 Vector SIMD Transformation
     sample_data = [1.2, 2.3, 3.4, 4.5, 5.6, 6.7, 7.8, 8.9]
     transformed_simd = uesp_quantum_core.avx2_quantum_tensor_transform(sample_data)
 
-    # 3. ONNX Model Inference
     if os.path.exists("ddpg_sentinel_policy.onnx"):
         ort_session = ort.InferenceSession("ddpg_sentinel_policy.onnx")
         onnx_inputs = {ort_session.get_inputs()[0].name: np.random.randn(1, 16).astype(np.float32)}
         action_output = ort_session.run(None, onnx_inputs)
 
-    # 4. NIM Reasoning
     report_text = query_nvidia_nim(issue_text)
 
-    # 5. Build PDF Artifact
     pdf_name = f"Report_{session_id[:12]}.pdf"
     generate_pdf_artifact(pdf_name, title, report_text, session_id)
 
-    # 6. WP Sync
     with open(pdf_name, 'rb') as f:
         m_res = requests.post(
             f"{WP_URL}/media",
