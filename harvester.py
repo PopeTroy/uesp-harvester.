@@ -2,9 +2,11 @@ import os
 import time
 import re
 import html
+import io
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
+from PIL import Image as PILImage
 import onnxruntime as ort
 import numpy as np
 import uesp_quantum_core  # Compiled Rust Module
@@ -202,11 +204,20 @@ def generate_pdf_artifact(filename, title, content, session_id):
 
     story = []
 
-    # Header Table
+    # Header Table - WebP to PNG conversion fix
+    logo_img = None
     try:
         r = requests.get(LOGO_URL, timeout=10)
-        with open("logo.webp", "wb") as f: f.write(r.content)
-        logo_img = Image("logo.webp", width=1.8 * inch, height=0.6 * inch)
+        r.raise_for_status()
+        img_buffer = io.BytesIO(r.content)
+        
+        # Convert WebP to PNG via PIL so ReportLab can digest it cleanly
+        pil_img = PILImage.open(img_buffer).convert("RGBA")
+        png_buffer = io.BytesIO()
+        pil_img.save(png_buffer, format="PNG")
+        png_buffer.seek(0)
+        
+        logo_img = Image(png_buffer, width=1.8 * inch, height=0.6 * inch)
     except Exception:
         logo_img = Paragraph("<b>CELSIUS TECH MEDIA GROUP</b>", title_style)
 
