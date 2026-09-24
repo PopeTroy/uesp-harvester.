@@ -130,14 +130,14 @@ def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
 #### 1. SE(3)-Invariant Centering & Spatial Normalization
 To prevent numerical drift and saturation during spatial transformations, spatial vectors are projected relative to their center-of-mass:
 
-$$\mathbf{x}_{centered} = \mathbf{x} - \frac{1}{N}\sum_{i=1}^{N}\mathbf{x}_i$$
+$$\mathbf{{x}}_{{centered}} = \mathbf{{x}} - \frac{{1}}{{N}}\sum_{{i=1}}^{{N}}\mathbf{{x}}_i$$
 
-$$\mathbf{x}_{invariant} = \frac{\mathbf{x}_{centered}}{\Vert{}\mathbf{x}_{centered}\Vert{}_2 + \epsilon}$$
+$$\mathbf{{x}}_{{invariant}} = \frac{{\mathbf{{x}}_{{centered}}}}{{\Vert{{\mathbf{{x}}_{{centered}}}}\Vert{{}}_2 + \epsilon}}$$
 
 #### 2. Active Inference Free Energy Bound
 The system minimizes variational free energy $F$ to maintain thermodynamic and physical equilibrium:
 
-$$F = \mathbb{E}_{q(\theta)}[\ln q(\theta) - \ln p(\mathbf{y}, \theta)] = D_{KL}(q(\theta) \,\vert{}\vert{}\, p(\theta)) - \mathbb{E}_{q(\theta)}[\ln p(\mathbf{y}\vert{}\theta)]$$
+$$F = \mathbb{{E}}_{{q(\theta)}}[\ln q(\theta) - \ln p(\mathbf{{y}}, \theta)] = D_{{KL}}(q(\theta) \,\vert{{\}}\vert{{\}}\, p(\theta)) - \mathbb{{E}}_{{q(\theta)}}[\ln p(\mathbf{{y}}\vert{{\}}\theta)]$$
 
 ---
 
