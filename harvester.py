@@ -103,13 +103,13 @@ def sanitize_inline_markdown(text: str) -> str:
     Safely cleans markdown text and converts inline tags to strict, balanced XML tags.
     Strips raw HTML tags, LaTeX math expressions ($), and stray formatting symbols.
     """
-    # 1. Strip pre-existing raw XML/HTML tags (e.g., <i>, </i>, <para>) to prevent tag imbalance
-    clean = re.sub(r'</?[^>]+>', '', text)
+    # 1. Strip pre-existing raw XML/HTML tags completely
+    clean = re.sub(r'<[^>]+>', '', text)
 
-    # 2. Clean out LaTeX math formatting and commands (e.g., $E=mc^2$, \times, \text)
+    # 2. Clean out LaTeX math formatting and symbols ($...$, \times, \approx, etc.)
     clean = clean.replace('$', '')
     clean = re.sub(r'\\text\{([^}]+)\}', r'\1', clean)
-    clean = clean.replace(r'\times', 'x').replace(r'\sim', '~')
+    clean = clean.replace(r'\times', 'x').replace(r'\approx', '~').replace(r'\sim', '~')
 
     # 3. Convert double-asterisk bold **text** to temporary placeholders
     bold_placeholders = []
@@ -166,7 +166,7 @@ def format_text_to_story(text: str, story: list, styles: dict):
             story.append(Paragraph(f"• {formatted}", bullet_style))
         elif line_str.startswith('> '):
             formatted = sanitize_inline_markdown(line_str[2:])
-            story.append(Paragraph(formatted, bullet_style))
+            story.append(Paragraph(formatted, bullet_style))  # Clean paragraph without adding raw <i> tags
         else:
             formatted = sanitize_inline_markdown(line_str)
             story.append(Paragraph(formatted, body_style))
