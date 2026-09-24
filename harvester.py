@@ -100,44 +100,39 @@ def query_nvidia_nim(prompt_text: str) -> str:
 
 def sanitize_inline_markdown(text: str) -> str:
     """
-    Safely cleans markdown text and converts inline tags to strict, balanced XML tags.
-    Strips pre-existing HTML tags, LaTeX expressions, and stray markdown formatting.
+    Strips raw HTML tags and converts markdown formatting into safe, clean text 
+    that ReportLab's XML parser can render without crashing.
     """
-    # 1. Strip all pre-existing HTML/XML tags completely
+    # 1. Strip pre-existing HTML tags (e.g., <i>, </i>, <para>) entirely
     clean = re.sub(r'<[^>]+>', '', text)
 
-    # 2. Clean out LaTeX math formatting and commands ($...$, \times, \approx, etc.)
+    # 2. Convert LaTeX and math symbols to plain text
     clean = clean.replace('$', '')
     clean = re.sub(r'\\text\{([^}]+)\}', r'\1', clean)
     clean = clean.replace(r'\times', 'x').replace(r'\approx', '~').replace(r'\sim', '~')
 
-    # 3. Handle double-asterisk bold **text** safely
-    bold_placeholders = []
-    def replace_bold(match):
-        bold_placeholders.append(match.group(1))
-        return f"__BOLD_PLACEHOLDER_{len(bold_placeholders) - 1}__"
-
-    clean = re.sub(r'\*\*([^*]+)\*\*', replace_bold, clean)
-
-    # 4. Remove all remaining asterisks, underscores, and backslashes
-    clean = clean.replace('*', '').replace('_', '').replace('\\', '')
-
-    # 5. Escape raw XML reserved characters (&, <, >)
+    # 3. Escape XML special characters FIRST (&, <, >) so raw tags are disabled
     clean = escape(clean)
 
-    # 6. Convert backtick inline code `code` -> <font face="Courier">code</font>
+    # 4. Handle Markdown bold (**text**) -> <b>text</b> cleanly
+    clean = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', clean)
+
+    # 5. Convert Markdown italic (*text* or _text_) -> <i>text</i> safely
+    clean = re.sub(r'\*([^*]+)\*', r'<i>\1</i>', clean)
+    clean = re.sub(r'_([^_]+)_', r'<i>\1</i>', clean)
+
+    # 6. Convert backticks `code` -> <font face="Courier">code</font>
     clean = re.sub(r'`([^`]+)`', r'<font face="Courier">\1</font>', clean)
 
-    # 7. Re-insert safe bold tags <b>text</b>
-    for i, placeholder in enumerate(bold_placeholders):
-        clean = clean.replace(f"__BOLD_PLACEHOLDER_{i}__", f"<b>{escape(placeholder)}</b>")
+    # 7. Clean up any leftover stray asterisks or underscores to prevent unclosed tags
+    # If an odd number of asterisks or backslashes remained, strip them out
+    clean = clean.replace('\\', '')
 
     return clean
 
 def format_text_to_story(text: str, story: list, styles: dict):
     """
     Parses dynamic markdown content and converts it line-by-line into flowable elements.
-    Spans cleanly across multiple pages without XML parse exceptions.
     """
     lines = text.split('\n')
     
@@ -152,20 +147,21 @@ def format_text_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 4))
             continue
 
+        # Strip block headers and list characters from raw line BEFORE sanitizing
         if line_str.startswith('# '):
-            content = re.sub(r'^#\s+', '', line_str)
+            content = line_str[2:].strip()
             story.append(Paragraph(sanitize_inline_markdown(content), h1_style))
         elif line_str.startswith('## '):
-            content = re.sub(r'^##\s+', '', line_str)
+            content = line_str[3:].strip()
             story.append(Paragraph(sanitize_inline_markdown(content), h1_style))
         elif line_str.startswith('### '):
-            content = re.sub(r'^###\s+', '', line_str)
+            content = line_str[4:].strip()
             story.append(Paragraph(sanitize_inline_markdown(content), h2_style))
         elif line_str.startswith('- ') or line_str.startswith('* '):
-            content = re.sub(r'^[-*]\s+', '', line_str)
+            content = line_str[2:].strip()
             story.append(Paragraph(f"• {sanitize_inline_markdown(content)}", bullet_style))
         elif line_str.startswith('> '):
-            content = re.sub(r'^>\s+', '', line_str)
+            content = line_str[2:].strip()
             story.append(Paragraph(f"• {sanitize_inline_markdown(content)}", bullet_style))
         else:
             story.append(Paragraph(sanitize_inline_markdown(line_str), body_style))
