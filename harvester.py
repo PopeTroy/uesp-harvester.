@@ -101,17 +101,17 @@ def query_nvidia_nim(prompt_text: str) -> str:
 def sanitize_inline_markdown(text: str) -> str:
     """
     Safely cleans markdown text and converts inline tags to strict, balanced XML tags.
-    Strips raw HTML tags, LaTeX math expressions ($), and stray formatting symbols.
+    Strips pre-existing HTML tags, LaTeX expressions, and stray markdown formatting.
     """
-    # 1. Strip pre-existing raw XML/HTML tags completely
+    # 1. Strip all pre-existing HTML/XML tags completely
     clean = re.sub(r'<[^>]+>', '', text)
 
-    # 2. Clean out LaTeX math formatting and symbols ($...$, \times, \approx, etc.)
+    # 2. Clean out LaTeX math formatting and commands ($...$, \times, \approx, etc.)
     clean = clean.replace('$', '')
     clean = re.sub(r'\\text\{([^}]+)\}', r'\1', clean)
     clean = clean.replace(r'\times', 'x').replace(r'\approx', '~').replace(r'\sim', '~')
 
-    # 3. Convert double-asterisk bold **text** to temporary placeholders
+    # 3. Handle double-asterisk bold **text** safely
     bold_placeholders = []
     def replace_bold(match):
         bold_placeholders.append(match.group(1))
@@ -119,7 +119,7 @@ def sanitize_inline_markdown(text: str) -> str:
 
     clean = re.sub(r'\*\*([^*]+)\*\*', replace_bold, clean)
 
-    # 4. Strip out any remaining loose asterisks, underscores, or backslashes
+    # 4. Remove all remaining asterisks, underscores, and backslashes
     clean = clean.replace('*', '').replace('_', '').replace('\\', '')
 
     # 5. Escape raw XML reserved characters (&, <, >)
@@ -153,23 +153,22 @@ def format_text_to_story(text: str, story: list, styles: dict):
             continue
 
         if line_str.startswith('# '):
-            formatted = sanitize_inline_markdown(line_str[2:])
-            story.append(Paragraph(formatted, h1_style))
+            content = re.sub(r'^#\s+', '', line_str)
+            story.append(Paragraph(sanitize_inline_markdown(content), h1_style))
         elif line_str.startswith('## '):
-            formatted = sanitize_inline_markdown(line_str[3:])
-            story.append(Paragraph(formatted, h1_style))
+            content = re.sub(r'^##\s+', '', line_str)
+            story.append(Paragraph(sanitize_inline_markdown(content), h1_style))
         elif line_str.startswith('### '):
-            formatted = sanitize_inline_markdown(line_str[4:])
-            story.append(Paragraph(formatted, h2_style))
+            content = re.sub(r'^###\s+', '', line_str)
+            story.append(Paragraph(sanitize_inline_markdown(content), h2_style))
         elif line_str.startswith('- ') or line_str.startswith('* '):
-            formatted = sanitize_inline_markdown(line_str[2:])
-            story.append(Paragraph(f"• {formatted}", bullet_style))
+            content = re.sub(r'^[-*]\s+', '', line_str)
+            story.append(Paragraph(f"• {sanitize_inline_markdown(content)}", bullet_style))
         elif line_str.startswith('> '):
-            formatted = sanitize_inline_markdown(line_str[2:])
-            story.append(Paragraph(formatted, bullet_style))  # Clean paragraph without adding raw <i> tags
+            content = re.sub(r'^>\s+', '', line_str)
+            story.append(Paragraph(f"• {sanitize_inline_markdown(content)}", bullet_style))
         else:
-            formatted = sanitize_inline_markdown(line_str)
-            story.append(Paragraph(formatted, body_style))
+            story.append(Paragraph(sanitize_inline_markdown(line_str), body_style))
 
 def generate_pdf_artifact(filename, title, content, session_id):
     doc = SimpleDocTemplate(filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
