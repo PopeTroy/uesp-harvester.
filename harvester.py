@@ -100,45 +100,22 @@ def query_nvidia_nim(prompt_text: str) -> str:
 def sanitize_inline_markdown(text: str) -> str:
     """
     Completely sanitizes incoming model text to prevent ReportLab XML parse errors.
-    Nukes all raw/escaped HTML tags, converts bold/italic via placeholders, and escapes XML.
+    Nukes all raw/escaped HTML tags and converts markdown to plain safe text.
     """
-    # 1. Unescape html entities first (turns &lt;i&gt; back into <i> so regex catches them)
     clean = html.unescape(text)
-
-    # 2. Strip ALL pre-existing HTML/XML tags completely
     clean = re.sub(r'<[^>]+>', '', clean)
 
-    # 3. Strip LaTeX math expressions, percent escapes, and backslashes
     clean = clean.replace('$', '').replace('\\%', '%').replace('\\', '')
     clean = re.sub(r'\\text\{([^}]+)\}', r'\1', clean)
     clean = clean.replace(r'\times', 'x').replace(r'\approx', '~').replace(r'\sim', '~')
 
-    # 4. Extract valid Markdown bold **text** into safe placeholders
-    bold_matches = []
-    def sub_bold(m):
-        bold_matches.append(m.group(1))
-        return f"___SAFE_BOLD_{len(bold_matches)-1}___"
-    clean = re.sub(r'\*\*([^*]+)\*\*', sub_bold, clean)
+    clean = re.sub(r'\*\*([^*]+)\*\*', r'\1', clean)
+    clean = re.sub(r'\*([^*]+)\*', r'\1', clean)
+    clean = re.sub(r'_([^_]+)_', r'\1', clean)
 
-    # 5. Extract valid Markdown italic *text* or _text_ into safe placeholders
-    italic_matches = []
-    def sub_italic(m):
-        italic_matches.append(m.group(1))
-        return f"___SAFE_ITALIC_{len(italic_matches)-1}___"
-    clean = re.sub(r'\*([^*]+)\*', sub_italic, clean)
-    clean = re.sub(r'_([^_]+)_', sub_italic, clean)
-
-    # 6. Remove any remaining stray asterisks, underscores, or angle brackets that aren't matched
     clean = clean.replace('*', '').replace('_', '').replace('>', '').replace('<', '')
 
-    # 7. Safe XML escape reserved characters (& -> &amp;, etc.)
     clean = escape(clean)
-
-    # 8. Re-insert formatted tags safely from clean placeholders
-    for i, content in enumerate(bold_matches):
-        clean = clean.replace(f"___SAFE_BOLD_{i}___", f"<b>{escape(content)}</b>")
-    for i, content in enumerate(italic_matches):
-        clean = clean.replace(f"___SAFE_ITALIC_{i}___", f"<i>{escape(content)}</i>")
 
     return clean
 
@@ -156,7 +133,6 @@ def format_text_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 4))
             continue
 
-        # Remove leading blockquote/markdown list tokens from raw line BEFORE sanitizing
         if line_str.startswith('# '):
             content = line_str[2:].strip()
             story.append(Paragraph(sanitize_inline_markdown(content), h1_style))
