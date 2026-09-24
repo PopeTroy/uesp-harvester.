@@ -8,6 +8,9 @@ import onnx
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(Actor, self).__init__()
+        # SE(3)-Style Invariant Normalization
+        self.layer_norm = nn.LayerNorm(state_dim)
+        
         self.net = nn.Sequential(
             nn.Linear(state_dim, 256),
             nn.ReLU(),
@@ -18,7 +21,13 @@ class Actor(nn.Module):
         )
 
     def forward(self, state):
-        return self.net(state)
+        # Center-of-mass & spatial invariant tensor projection
+        mean_state = torch.mean(state, dim=-1, keepdim=True)
+        centered_state = state - mean_state
+        norm_factor = torch.norm(centered_state, p=2, dim=-1, keepdim=True) + 1e-8
+        invariant_state = self.layer_norm(centered_state / norm_factor)
+        
+        return self.net(invariant_state)
 
 # Critic Network for Value Estimation
 class Critic(nn.Module):
@@ -44,7 +53,14 @@ class QuantumSandboxEnv:
     def step(self, action):
         # Apply 1:6000 quantum time-dilation acceleration to reward structure
         state = np.random.randn(self.state_dim).astype(np.float32)
-        reward = -np.sum(np.square(action)) * (self.dilation_ratio / 1000.0)
+        
+        # Szilard Information Ratchet Negentropy Extraction & Landauer Limit
+        k_B_temp = 0.0258
+        landauer_dissipation = k_B_temp * np.log(2) * np.sum(np.abs(action))
+        negentropy_extracted = -np.log(np.mean(np.square(state)) + 1e-8)
+        
+        # Normalized active inference reward
+        reward = -(landauer_dissipation - (0.1 * negentropy_extracted)) * 0.1
         done = True
         return state, reward, done
 
@@ -52,8 +68,8 @@ def train_and_export_onnx(onnx_path="ddpg_sentinel_policy.onnx"):
     env = QuantumSandboxEnv()
     actor = Actor(env.state_dim, env.action_dim)
     
-    # Simple sandbox training cycle
-    optimizer = optim.Adam(actor.parameters(), lr=1e-3)
+    # Simple sandbox training cycle with L2 regularization (weight_decay) to prevent Tanh saturation
+    optimizer = optim.Adam(actor.parameters(), lr=1e-4, weight_decay=1e-4)
     for epoch in range(50):
         state = torch.randn(1, env.state_dim)
         action = actor(state)
