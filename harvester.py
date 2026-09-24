@@ -68,8 +68,8 @@ def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
         except Exception as e:
             print(f"[WARN] ONNX Inference Warning: {e}")
 
-    # Synthesize comprehensive, dynamically expanded multi-page report
-    return f"""# UESP Quantum Engine Diagnostic Report: {prompt_text}
+    # Raw multi-line string eliminates f-string parsing conflicts with LaTeX math blocks
+    report_template = r"""# UESP Quantum Engine Diagnostic Report: {prompt_text}
 
 **Status:** Execution completed via Local Aetheric Archon Otsutsuki ONNX Neural Engine.
 **Input Context:** {prompt_text}
@@ -130,14 +130,14 @@ def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
 #### 1. SE(3)-Invariant Centering & Spatial Normalization
 To prevent numerical drift and saturation during spatial transformations, spatial vectors are projected relative to their center-of-mass:
 
-$$\mathbf{{x}}_{{centered}} = \mathbf{{x}} - \frac{{1}}{{N}}\sum_{{i=1}}^{{N}}\mathbf{{x}}_i$$
+$$\mathbf{x}_{centered} = \mathbf{x} - \frac{1}{N}\sum_{i=1}^{N}\mathbf{x}_i$$
 
-$$\mathbf{{x}}_{{invariant}} = \frac{{\mathbf{{x}}_{{centered}}}}{{\Vert{{\mathbf{{x}}_{{centered}}}}\Vert{{}}_2 + \epsilon}}$$
+$$\mathbf{x}_{invariant} = \frac{\mathbf{x}_{centered}}{\Vert{}\mathbf{x}_{centered}\Vert{}_2 + \epsilon}$$
 
 #### 2. Active Inference Free Energy Bound
 The system minimizes variational free energy $F$ to maintain thermodynamic and physical equilibrium:
 
-$$F = \mathbb{{E}}_{{q(\theta)}}[\ln q(\theta) - \ln p(\mathbf{{y}}, \theta)] = D_{{KL}}(q(\theta) \,\vert{{\}}\vert{{\}}\, p(\theta)) - \mathbb{{E}}_{{q(\theta)}}[\ln p(\mathbf{{y}}\vert{{\}}\theta)]$$
+$$F = \mathbb{E}_{q(\theta)}[\ln q(\theta) - \ln p(\mathbf{y}, \theta)] = D_{KL}(q(\theta) \,\vert{}\vert{}\, p(\theta)) - \mathbb{E}_{q(\theta)}[\ln p(\mathbf{y}\vert{}\theta)]$$
 
 ---
 
@@ -147,6 +147,7 @@ $$F = \mathbb{{E}}_{{q(\theta)}}[\ln q(\theta) - \ln p(\mathbf{{y}}, \theta)] = 
 2. **Sub-atomic Nanite Kinematic Calibration:** Kinematic cap limits enforced across actuators to prevent micro-thermal dissipation and metabolic burnout.
 3. **Local Telemetry & Fault Tolerant Fallback:** Execution graph fully hosted and evaluated on-device using AVX2 SIMD vector operations and local DDPG ONNX models, maintaining complete autonomous capability during external communication blackouts.
 """
+    return report_template.format(prompt_text=prompt_text, action_vector=action_vector)
 
 
 def query_nvidia_nim(prompt_text: str) -> str:
