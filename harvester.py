@@ -100,7 +100,7 @@ def query_nvidia_nim(prompt_text: str) -> str:
 def sanitize_inline_markdown(text: str) -> str:
     """
     Completely sanitizes incoming model text to prevent ReportLab XML parse errors.
-    Nuke all raw/escaped HTML tags, converts bold/italic via placeholders, and escapes XML.
+    Nukes all raw/escaped HTML tags, converts bold/italic via placeholders, and escapes XML.
     """
     # 1. Unescape html entities first (turns &lt;i&gt; back into <i> so regex catches them)
     clean = html.unescape(text)
@@ -108,10 +108,10 @@ def sanitize_inline_markdown(text: str) -> str:
     # 2. Strip ALL pre-existing HTML/XML tags completely
     clean = re.sub(r'<[^>]+>', '', clean)
 
-    # 3. Strip LaTeX expressions and backslashes
-    clean = clean.replace('$', '')
+    # 3. Strip LaTeX math expressions, percent escapes, and backslashes
+    clean = clean.replace('$', '').replace('\\%', '%').replace('\\', '')
     clean = re.sub(r'\\text\{([^}]+)\}', r'\1', clean)
-    clean = clean.replace(r'\times', 'x').replace(r'\approx', '~').replace(r'\sim', '~').replace('\\', '')
+    clean = clean.replace(r'\times', 'x').replace(r'\approx', '~').replace(r'\sim', '~')
 
     # 4. Extract valid Markdown bold **text** into safe placeholders
     bold_matches = []
@@ -156,6 +156,7 @@ def format_text_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 4))
             continue
 
+        # Remove leading blockquote/markdown list tokens from raw line BEFORE sanitizing
         if line_str.startswith('# '):
             content = line_str[2:].strip()
             story.append(Paragraph(sanitize_inline_markdown(content), h1_style))
