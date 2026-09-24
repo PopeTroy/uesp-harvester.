@@ -2,16 +2,16 @@ import os
 import time
 import re
 import html
-from xml.sax.saxutils import escape
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 import onnxruntime as ort
 import numpy as np
 import uesp_quantum_core  # Compiled Rust Module
+
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, Flowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 
@@ -32,21 +32,88 @@ Web: celsiustechmediagroup.co.za<br/>
 Engine: UESP / PRCE Resolution Protocol
 """
 
+# Hard lock prompt to prevent LLM from generating ANY formatting syntax
 SYSTEM_PROMPT = """
 [FMR SENTINEL MULTI-MODEL AGENT CORE]
-You are a PhD-level research engine combining Quantum Mechanics, Astrophysics, Physical Ergonomics, and Shinobi Tactical Analysis (Ocular Diagnostics & Energy Balance).
-Resolve the provided user issue into a comprehensive, highly technical Diagnostic Report.
-Do NOT use LaTeX math formatting (e.g., $...$) or raw HTML tags in your response. Use standard plain text for all equations and numbers.
+You are a PhD-level research engine combining Quantum Mechanics, Astrophysics, Physical Ergonomics, and Shinobi Tactical Analysis.
+Resolve the provided user issue into a comprehensive Diagnostic Report.
+
+CRITICAL FORMATTING INSTRUCTIONS:
+- STAGE ALL OUTPUT IN PURE PLAIN TEXT ONLY.
+- DO NOT use HTML tags (NO <i>, <b>, <para>, etc.).
+- DO NOT use Markdown syntax (NO asterisks *, NO underscores _, NO blockquotes >).
+- DO NOT use LaTeX math formatting (NO $, NO backslashes \).
+- Use standard text for equations (e.g., kB * T * ln(2)).
+- Failure to comply will break the downstream parser.
 """
 
+class SafePlainTextFlowable(Flowable):
+    """
+    Renders text directly to the PDF canvas without ReportLab's XML/Paragraph parser.
+    Guarantees zero XML parse errors regardless of LLM output.
+    """
+    def __init__(self, text, font_name="Helvetica", font_size=9, leading=13, text_color=colors.black, is_bullet=False):
+        super().__init__()
+        self.text = text
+        self.font_name = font_name
+        self.font_size = font_size
+        self.leading = leading
+        self.text_color = text_color
+        self.is_bullet = is_bullet
+        self.width = 7.0 * inch
+        self.lines = []
+
+    def wrap(self, availWidth, availHeight):
+        self.width = availWidth
+        # Clean text completely
+        clean_str = html.unescape(self.text)
+        clean_str = re.sub(r'<[^>]+>', '', clean_str)
+        clean_str = clean_str.replace('$', '').replace('\\', '').replace('*', '').replace('_', '')
+        
+        prefix = "• " if self.is_bullet else ""
+        full_text = prefix + clean_str.strip()
+
+        # Simple character-based line wrapping calculation
+        max_chars = max(1, int(availWidth / (self.font_size * 0.52)))
+        words = full_text.split(' ')
+        current_line = []
+        current_len = 0
+
+        for word in words:
+            if current_len + len(word) + 1 <= max_chars:
+                current_line.append(word)
+                current_len += len(word) + 1
+            else:
+                self.lines.append(" ".join(current_line))
+                current_line = [word]
+                current_len = len(word)
+
+        if current_line:
+            self.lines.append(" ".join(current_line))
+
+        height = len(self.lines) * self.leading
+        return availWidth, height
+
+    def draw(self):
+        canvas = self.canv
+        canvas.saveState()
+        canvas.setFont(self.font_name, self.font_size)
+        canvas.setFillColor(self.text_color)
+        
+        y = self.leading * (len(self.lines) - 1)
+        for line in self.lines:
+            canvas.drawString(0, y, line)
+            y -= self.leading
+            
+        canvas.restoreState()
+
+
 def query_nvidia_nim(prompt_text: str) -> str:
-    """Queries NVIDIA NIM endpoint with robust timeout handling and retry logic."""
     endpoint = os.getenv("NVIDIA_ENDPOINT", NVIDIA_ENDPOINT)
     api_key = os.getenv("NVIDIA_API_KEY", NVIDIA_KEY)
     
     if not api_key:
-        print("[WARN] NVIDIA_API_KEY missing. Returning local fallback payload.")
-        return f"# Diagnostic Report (Fallback)\n\n**Payload:** {prompt_text}\n\n*NVIDIA NIM API key not configured.*"
+        return f"Diagnostic Report (Fallback)\n\nPayload: {prompt_text}\n\nNVIDIA NIM API key not configured."
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -57,26 +124,15 @@ def query_nvidia_nim(prompt_text: str) -> str:
     payload = {
         "model": os.getenv("NVIDIA_MODEL", "meta/llama-3.3-70b-instruct"),
         "messages": [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT
-            },
-            {
-                "role": "user",
-                "content": prompt_text
-            }
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt_text}
         ],
-        "temperature": 0.2,
+        "temperature": 0.1,
         "max_tokens": 2048
     }
 
     session = requests.Session()
-    retries = Retry(
-        total=3,
-        backoff_factor=2,
-        status_forcelist=[429, 500, 502, 503, 504],
-        raise_on_status=False
-    )
+    retries = Retry(total=3, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504], raise_on_status=False)
     session.mount("https://", HTTPAdapter(max_retries=retries))
 
     try:
@@ -84,69 +140,49 @@ def query_nvidia_nim(prompt_text: str) -> str:
         response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"]["content"]
-    except (requests.exceptions.ReadTimeout, requests.exceptions.RequestException) as e:
-        print(f"[ERROR] NVIDIA NIM API call failed or timed out: {e}")
+    except Exception as e:
         return (
-            f"# UESP Quantum Engine Diagnostic Report\n\n"
-            f"**Status:** Execution completed with local telemetry fallback.\n"
-            f"**Input Context:** {prompt_text}\n\n"
-            f"### Automated System Telemetry\n"
-            f"- **Quantum Dilation:** 1:6000 Ratio Applied\n"
-            f"- **SIMD Vector Engine:** AVX2 Hardware Accelerated\n"
-            f"- **Policy Optimization:** DDPG ONNX Checkpoint Validated\n"
-            f"- **Notice:** External NIM synthesis endpoint timed out ({e}). Local fallback applied."
+            f"UESP Quantum Engine Diagnostic Report\n\n"
+            f"Status: Execution completed with local telemetry fallback.\n"
+            f"Input Context: {prompt_text}\n\n"
+            f"Automated System Telemetry:\n"
+            f"- Quantum Dilation: 1:6000 Ratio Applied\n"
+            f"- SIMD Vector Engine: AVX2 Hardware Accelerated\n"
+            f"- Policy Optimization: DDPG ONNX Checkpoint Validated\n"
+            f"- Notice: External endpoint error ({e}). Local fallback applied."
         )
 
-def sanitize_inline_markdown(text: str) -> str:
-    """
-    Completely sanitizes incoming model text to prevent ReportLab XML parse errors.
-    Nukes all raw/escaped HTML tags and converts markdown to plain safe text.
-    """
-    clean = html.unescape(text)
-    clean = re.sub(r'<[^>]+>', '', clean)
 
-    clean = clean.replace('$', '').replace('\\%', '%').replace('\\', '')
-    clean = re.sub(r'\\text\{([^}]+)\}', r'\1', clean)
-    clean = clean.replace(r'\times', 'x').replace(r'\approx', '~').replace(r'\sim', '~')
-
-    clean = re.sub(r'\*\*([^*]+)\*\*', r'\1', clean)
-    clean = re.sub(r'\*([^*]+)\*', r'\1', clean)
-    clean = re.sub(r'_([^_]+)_', r'\1', clean)
-
-    clean = clean.replace('*', '').replace('_', '').replace('>', '').replace('<', '')
-
-    clean = escape(clean)
-
-    return clean
-
-def format_text_to_story(text: str, story: list, styles: dict):
+def format_text_to_story(text: str, story: list):
     lines = text.split('\n')
     
-    h1_style = ParagraphStyle('ReportH1', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=13, leading=16, textColor=colors.HexColor('#003366'), spaceBefore=10, spaceAfter=4)
-    h2_style = ParagraphStyle('ReportH2', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=colors.HexColor('#004d40'), spaceBefore=8, spaceAfter=4)
-    body_style = ParagraphStyle('ReportBody', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=13, spaceAfter=4)
-    bullet_style = ParagraphStyle('ReportBullet', parent=body_style, leftIndent=12, spaceAfter=3)
-
     for line in lines:
         line_str = line.strip()
         if not line_str:
             story.append(Spacer(1, 4))
             continue
 
+        # Convert markdown headers/bullets into safe custom canvas elements
         if line_str.startswith('# '):
             content = line_str[2:].strip()
-            story.append(Paragraph(sanitize_inline_markdown(content), h1_style))
+            story.append(SafePlainTextFlowable(content, font_name="Helvetica-Bold", font_size=13, leading=16, text_color=colors.HexColor('#003366')))
+            story.append(Spacer(1, 4))
         elif line_str.startswith('## '):
             content = line_str[3:].strip()
-            story.append(Paragraph(sanitize_inline_markdown(content), h1_style))
+            story.append(SafePlainTextFlowable(content, font_name="Helvetica-Bold", font_size=12, leading=15, text_color=colors.HexColor('#003366')))
+            story.append(Spacer(1, 4))
         elif line_str.startswith('### '):
             content = line_str[4:].strip()
-            story.append(Paragraph(sanitize_inline_markdown(content), h2_style))
+            story.append(SafePlainTextFlowable(content, font_name="Helvetica-Bold", font_size=10, leading=13, text_color=colors.HexColor('#004d40')))
+            story.append(Spacer(1, 3))
         elif line_str.startswith('- ') or line_str.startswith('* ') or line_str.startswith('> '):
             content = re.sub(r'^[-*>]\s*', '', line_str).strip()
-            story.append(Paragraph(f"• {sanitize_inline_markdown(content)}", bullet_style))
+            story.append(SafePlainTextFlowable(content, font_name="Helvetica", font_size=9, leading=13, is_bullet=True))
+            story.append(Spacer(1, 2))
         else:
-            story.append(Paragraph(sanitize_inline_markdown(line_str), body_style))
+            story.append(SafePlainTextFlowable(line_str, font_name="Helvetica", font_size=9, leading=13))
+            story.append(Spacer(1, 3))
+
 
 def generate_pdf_artifact(filename, title, content, session_id):
     doc = SimpleDocTemplate(filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -158,7 +194,7 @@ def generate_pdf_artifact(filename, title, content, session_id):
 
     story = []
 
-    # Logo Header
+    # Header Table
     try:
         r = requests.get(LOGO_URL, timeout=10)
         with open("logo.webp", "wb") as f: f.write(r.content)
@@ -171,9 +207,10 @@ def generate_pdf_artifact(filename, title, content, session_id):
     story.append(header_table)
     story.append(Spacer(1, 10))
 
+    # Manifest Box
     compliance_text = (
         f"<b>ECTA &amp; QUANTUM DILATION MANIFEST:</b><br/>"
-        f"• SHA256 ECTA Timestamped Session: <font face=\"Courier\">{escape(session_id)}</font><br/>"
+        f"• SHA256 ECTA Timestamped Session: <font face=\"Courier\">{session_id}</font><br/>"
         f"• Quantum Cycle Time Dilation: 1 : 6000 Standard<br/>"
         f"• Edge Acceleration: AVX2 SIMD Vectorized<br/>"
         f"• Learning Sandbox Policy: DDPG Continuous RL (ONNX Runtime Active)"
@@ -187,12 +224,13 @@ def generate_pdf_artifact(filename, title, content, session_id):
     story.append(comp_table)
     story.append(Spacer(1, 15))
 
-    story.append(Paragraph(f"<b>UESP DIAGNOSTIC REPORT:</b> {escape(title)}", title_style))
+    story.append(SafePlainTextFlowable(f"UESP DIAGNOSTIC REPORT: {title}", font_name="Helvetica-Bold", font_size=14, leading=18, text_color=colors.HexColor('#003366')))
     story.append(Spacer(1, 8))
 
-    format_text_to_story(content, story, styles)
+    format_text_to_story(content, story)
 
     doc.build(story)
+
 
 def process_and_run(title, issue_text):
     session_id = uesp_quantum_core.generate_ecta_session_id(issue_text)
