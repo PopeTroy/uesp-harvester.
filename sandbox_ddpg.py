@@ -80,15 +80,19 @@ def train_and_export_onnx(onnx_path="ddpg_sentinel_policy.onnx"):
 
     # Convert PyTorch Model to ONNX format
     dummy_input = torch.randn(1, env.state_dim, requires_grad=True)
+    
+    actor.eval()  # Recommended to clear training mode warnings
+
     torch.onnx.export(
         actor,
         dummy_input,
-        onnx_path,
+        "ddpg_sentinel_policy.onnx",
         export_params=True,
-        opset_version=14,
+        opset_version=18,  # Match native exporter opset version
         do_constant_folding=True,
-        input_names=['quantum_state_input'],
-        output_names=['tactical_action_output']
+        input_names=["input"],
+        output_names=["output"],
+        dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}}
     )
     print(f"✅ DDPG Policy converted and exported to ONNX: {onnx_path}")
 
