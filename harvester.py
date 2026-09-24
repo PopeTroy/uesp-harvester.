@@ -65,7 +65,7 @@ def query_nvidia_nim(prompt_text: str) -> str:
             }
         ],
         "temperature": 0.2,
-        "max_tokens": 2048
+        "max_tokens": 4096
     }
 
     # Setup session with exponential backoff retries
@@ -97,24 +97,40 @@ def query_nvidia_nim(prompt_text: str) -> str:
             f"- **Notice:** External NIM synthesis endpoint timed out ({e}). Local fallback applied."
         )
 
-def format_text_for_reportlab(text: str) -> str:
+def format_text_to_story(text: str, story: list, styles: dict):
     """
-    Sanitizes raw model output and converts basic Markdown tags to valid ReportLab XML.
-    Strips unsupported tags like <a rel="..."> that break paraparser.
+    Parses dynamic markdown content and converts it line-by-line into flowable elements.
+    Spans cleanly across as many pages as needed without length truncations.
     """
-    # 1. Strip raw HTML tags that ReportLab paraparser cannot process (e.g. <link>, <a rel=...>, <div>)
-    text = re.sub(r'</?(?:link|div|span|p|a|table|tr|td|th|tbody|thead|code|pre|img)[^>]*>', '', text, flags=re.IGNORECASE)
+    lines = text.split('\n')
+    
+    h1_style = ParagraphStyle('ReportH1', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=13, leading=16, textColor=colors.HexColor('#003366'), spaceBefore=10, spaceAfter=4)
+    h2_style = ParagraphStyle('ReportH2', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=colors.HexColor('#004d40'), spaceBefore=8, spaceAfter=4)
+    body_style = ParagraphStyle('ReportBody', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=13, spaceAfter=4)
+    bullet_style = ParagraphStyle('ReportBullet', parent=body_style, leftIndent=12, spaceAfter=3)
 
-    # 2. Safely escape XML reserved characters (&, <, >) so math operators don't break XML parsing
-    text = escape(text)
+    for line in lines:
+        line_str = line.strip()
+        if not line_str:
+            story.append(Spacer(1, 4))
+            continue
 
-    # 3. Re-inject safe inline ReportLab styling from basic Markdown
-    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)               # **bold** -> <b>bold</b>
-    text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)                   # *italic* -> <i>italic</i>
-    text = re.sub(r'`(.*?)`', r'<font face="Courier">\1</font>', text) # `code` -> inline mono
+        # Convert markdown styling
+        formatted = escape(line_str)
+        formatted = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', formatted)
+        formatted = re.sub(r'\*(.*?)\*', r'<i>\1</i>', formatted)
+        formatted = re.sub(r'`(.*?)`', r'<font face="Courier">\1</font>', formatted)
 
-    # 4. Map linebreaks to ReportLab breaks
-    return text.replace('\n', '<br/>')
+        if line_str.startswith('# '):
+            story.append(Paragraph(formatted[2:], h1_style))
+        elif line_str.startswith('## '):
+            story.append(Paragraph(formatted[3:], h1_style))
+        elif line_str.startswith('### '):
+            story.append(Paragraph(formatted[4:], h2_style))
+        elif line_str.startswith('- ') or line_str.startswith('* '):
+            story.append(Paragraph(f"• {formatted[2:]}", bullet_style))
+        else:
+            story.append(Paragraph(formatted, body_style))
 
 def generate_pdf_artifact(filename, title, content, session_id):
     doc = SimpleDocTemplate(filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -159,9 +175,8 @@ def generate_pdf_artifact(filename, title, content, session_id):
     story.append(Paragraph(f"<b>UESP DIAGNOSTIC REPORT:</b> {escape(title)}", title_style))
     story.append(Spacer(1, 8))
 
-    # Clean and sanitize content prior to paragraph rendering
-    sanitized_report = format_text_for_reportlab(content)
-    story.append(Paragraph(sanitized_report, body_style))
+    # Parse multi-page dynamic output directly into story flowables
+    format_text_to_story(content, story, styles)
 
     doc.build(story)
 
