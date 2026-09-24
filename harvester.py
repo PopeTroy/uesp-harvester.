@@ -22,8 +22,10 @@ WP_PASS = os.getenv("WP_APP_PASSWORD")
 NVIDIA_KEY = os.getenv("NVIDIA_API_KEY")
 
 LOGO_URL = "https://celsiustechmediagroup.co.za/wp-content/uploads/2026/01/CTMG.webp"
-NVIDIA_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
-NVIDIA_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
+
+# Targeting Downloadable Local Container NIM Endpoint with NGC fallback
+NVIDIA_ENDPOINT = os.getenv("NVIDIA_ENDPOINT", "http://localhost:8000/v1/chat/completions")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
 
 COMPANY_DETAILS = """
 <b>Celsius Tech Media Group</b><br/>
@@ -111,18 +113,17 @@ class SafePlainTextFlowable(Flowable):
 def query_nvidia_nim(prompt_text: str) -> str:
     endpoint = os.getenv("NVIDIA_ENDPOINT", NVIDIA_ENDPOINT)
     api_key = os.getenv("NVIDIA_API_KEY", NVIDIA_KEY)
-    
-    if not api_key:
-        return f"Diagnostic Report (Fallback)\n\nPayload: {prompt_text}\n\nNVIDIA NIM API key not configured."
 
     headers = {
-        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
+    
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
 
     payload = {
-        "model": os.getenv("NVIDIA_MODEL", "meta/llama-3.3-70b-instruct"),
+        "model": NVIDIA_MODEL,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt_text}
@@ -133,6 +134,7 @@ def query_nvidia_nim(prompt_text: str) -> str:
 
     session = requests.Session()
     retries = Retry(total=3, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504], raise_on_status=False)
+    session.mount("http://", HTTPAdapter(max_retries=retries))
     session.mount("https://", HTTPAdapter(max_retries=retries))
 
     try:
