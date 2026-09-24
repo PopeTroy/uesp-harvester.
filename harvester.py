@@ -53,7 +53,7 @@ def query_nvidia_nim(prompt_text: str) -> str:
     }
 
     payload = {
-        "model": NVIDIA_MODEL,
+        "model": os.getenv("NVIDIA_MODEL", "meta/llama-3.3-70b-instruct"),
         "messages": [
             {
                 "role": "system",
@@ -65,7 +65,7 @@ def query_nvidia_nim(prompt_text: str) -> str:
             }
         ],
         "temperature": 0.2,
-        "max_tokens": 4096
+        "max_tokens": 2048
     }
 
     # Setup session with exponential backoff retries
@@ -99,27 +99,27 @@ def query_nvidia_nim(prompt_text: str) -> str:
 
 def sanitize_inline_markdown(text: str) -> str:
     """
-    Safely escapes XML characters and converts Markdown formatting to standard ReportLab tags.
-    Prevents mismatched or dangling tags when asterisks or math operators are present.
+    Safely cleans markdown text and converts inline tags to strict, balanced XML tags.
+    Prevents mismatched or inverted tags (e.g. <b>...</i>...</b>).
     """
-    # First escape standard XML reserved entities
-    escaped = escape(text)
+    # 1. Safely escape raw XML reserved characters
+    clean = escape(text)
 
-    # Convert code blocks `code`
-    escaped = re.sub(r'`([^`]+)`', r'<font face="Courier">\1</font>', escaped)
+    # 2. Convert inline code `code`
+    clean = re.sub(r'`([^`]+)`', r'<font face="Courier">\1</font>', clean)
 
-    # Convert bold **text**
-    escaped = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', escaped)
+    # 3. Convert double-asterisk bold **text**
+    clean = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', clean)
 
-    # Convert italic *text* (word boundaries ensure math asterisks like 2 * 3 aren't converted)
-    escaped = re.sub(r'\b\*([^*]+)\*\b', r'<i>\1</i>', escaped)
+    # 4. Remove lingering single asterisks or math-related stars to prevent tag mismatches
+    clean = clean.replace('*', '')
 
-    return escaped
+    return clean
 
 def format_text_to_story(text: str, story: list, styles: dict):
     """
     Parses dynamic markdown content and converts it line-by-line into flowable elements.
-    Spans cleanly across as many pages as needed without XML parse exceptions or truncation.
+    Spans cleanly across multiple pages without XML parse exceptions.
     """
     lines = text.split('\n')
     
@@ -134,20 +134,23 @@ def format_text_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 4))
             continue
 
-        # Safely convert markdown formatting without breaking ReportLab XML
-        formatted = sanitize_inline_markdown(line_str)
-
         if line_str.startswith('# '):
-            story.append(Paragraph(formatted[2:], h1_style))
+            formatted = sanitize_inline_markdown(line_str[2:])
+            story.append(Paragraph(formatted, h1_style))
         elif line_str.startswith('## '):
-            story.append(Paragraph(formatted[3:], h1_style))
+            formatted = sanitize_inline_markdown(line_str[3:])
+            story.append(Paragraph(formatted, h1_style))
         elif line_str.startswith('### '):
-            story.append(Paragraph(formatted[4:], h2_style))
+            formatted = sanitize_inline_markdown(line_str[4:])
+            story.append(Paragraph(formatted, h2_style))
         elif line_str.startswith('- ') or line_str.startswith('* '):
-            story.append(Paragraph(f"• {formatted[2:]}", bullet_style))
+            formatted = sanitize_inline_markdown(line_str[2:])
+            story.append(Paragraph(f"• {formatted}", bullet_style))
         elif line_str.startswith('> '):
-            story.append(Paragraph(f"<i>{formatted[2:]}</i>", bullet_style))
+            formatted = sanitize_inline_markdown(line_str[2:])
+            story.append(Paragraph(f"<i>{formatted}</i>", bullet_style))
         else:
+            formatted = sanitize_inline_markdown(line_str)
             story.append(Paragraph(formatted, body_style))
 
 def generate_pdf_artifact(filename, title, content, session_id):
