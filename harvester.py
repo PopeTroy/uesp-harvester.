@@ -68,17 +68,17 @@ def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
         except Exception as e:
             print(f"[WARN] ONNX Inference Warning: {e}")
 
-    # Raw multi-line string eliminates f-string parsing conflicts with LaTeX math blocks
-    report_template = r"""# UESP Quantum Engine Diagnostic Report: {prompt_text}
+    # Standard raw multi-line string (No f-string)
+    report_template = r"""# UESP Quantum Engine Diagnostic Report: %PROMPT%
 
 **Status:** Execution completed via Local Aetheric Archon Otsutsuki ONNX Neural Engine.
-**Input Context:** {prompt_text}
+**Input Context:** %PROMPT%
 
 ### Automated System Telemetry & Aetheric Policy State
 - **Quantum Dilation Ratio:** 1 : 6000 Ratio Applied
 - **SIMD Vector Acceleration Engine:** AVX2 Hardware Accelerated
 - **Policy Optimization Checkpoint:** DDPG Continuous Reinforcement Learning (ONNX Active)
-- **Aetheric Archon Tactical Action Tensor:** `{action_vector}`
+- **Aetheric Archon Tactical Action Tensor:** `%ACTION_VECTOR%`
 
 ---
 
@@ -147,7 +147,7 @@ $$F = \mathbb{E}_{q(\theta)}[\ln q(\theta) - \ln p(\mathbf{y}, \theta)] = D_{KL}
 2. **Sub-atomic Nanite Kinematic Calibration:** Kinematic cap limits enforced across actuators to prevent micro-thermal dissipation and metabolic burnout.
 3. **Local Telemetry & Fault Tolerant Fallback:** Execution graph fully hosted and evaluated on-device using AVX2 SIMD vector operations and local DDPG ONNX models, maintaining complete autonomous capability during external communication blackouts.
 """
-    return report_template.format(prompt_text=prompt_text, action_vector=action_vector)
+    return report_template.replace("%PROMPT%", prompt_text).replace("%ACTION_VECTOR%", str(action_vector))
 
 
 def query_nvidia_nim(prompt_text: str) -> str:
@@ -266,11 +266,11 @@ def generate_pdf_artifact(filename, title, content, session_id):
 
     # ECTA & Quantum Manifest Box
     compliance_text = (
-        f"<b>ECTA &amp; QUANTUM DILATION MANIFEST:</b><br/>"
-        f"• SHA256 ECTA Timestamped Session: <font face=\"Courier\">{escape(session_id)}</font><br/>"
-        f"• Quantum Cycle Time Dilation: 1 : 6000 Standard<br/>"
-        f"• Edge Acceleration: AVX2 SIMD Vectorized<br/>"
-        f"• Learning Sandbox Policy: DDPG Continuous RL (Aetheric Archon ONNX Active)"
+        "<b>ECTA &amp; QUANTUM DILATION MANIFEST:</b><br/>"
+        "• SHA256 ECTA Timestamped Session: <font face=\"Courier\">" + escape(session_id) + "</font><br/>"
+        "• Quantum Cycle Time Dilation: 1 : 6000 Standard<br/>"
+        "• Edge Acceleration: AVX2 SIMD Vectorized<br/>"
+        "• Learning Sandbox Policy: DDPG Continuous RL (Aetheric Archon ONNX Active)"
     )
     comp_table = Table([[Paragraph(compliance_text, comp_style)]], colWidths=[7.0 * inch])
     comp_table.setStyle(TableStyle([
@@ -281,7 +281,7 @@ def generate_pdf_artifact(filename, title, content, session_id):
     story.append(comp_table)
     story.append(Spacer(1, 15))
 
-    story.append(Paragraph(f"<b>UESP DIAGNOSTIC REPORT:</b> {escape(title)}", title_style))
+    story.append(Paragraph("<b>UESP DIAGNOSTIC REPORT:</b> " + escape(title), title_style))
     story.append(Spacer(1, 8))
 
     # Clean and sanitize content prior to paragraph rendering
@@ -303,14 +303,14 @@ def process_and_run(title, issue_text):
     report_text = query_nvidia_nim(issue_text)
 
     # 4. Build PDF Artifact
-    pdf_name = f"Report_{session_id[:12]}.pdf"
+    pdf_name = "Report_" + session_id[:12] + ".pdf"
     generate_pdf_artifact(pdf_name, title, report_text, session_id)
 
     # 5. WP Sync
     with open(pdf_name, 'rb') as f:
         m_res = requests.post(
-            f"{WP_URL}/media",
-            headers={'Content-Disposition': f'attachment; filename="{pdf_name}"', 'Content-Type': 'application/pdf'},
+            WP_URL + "/media",
+            headers={'Content-Disposition': 'attachment; filename="' + pdf_name + '"', 'Content-Type': 'application/pdf'},
             data=f,
             auth=(WP_USER, WP_PASS)
         )
@@ -318,13 +318,13 @@ def process_and_run(title, issue_text):
     if m_res.status_code == 201:
         pdf_url = m_res.json().get('source_url')
         wp_body = (
-            f"{report_text}<br/><br/>"
-            f"<b>ECTA Audit Token:</b> <code>{session_id}</code><br/>"
-            f"<a href='{pdf_url}' target='_blank'>📥 Download Full PDF Artifact</a>"
+            report_text + "<br/><br/>"
+            "<b>ECTA Audit Token:</b> <code>" + session_id + "</code><br/>"
+            "<a href='" + pdf_url + "' target='_blank'>📥 Download Full PDF Artifact</a>"
         )
         requests.post(
-            f"{WP_URL}/uesp_record",
-            json={"title": f"Diagnostic: {title}", "content": wp_body, "status": "publish"},
+            WP_URL + "/uesp_record",
+            json={"title": "Diagnostic: " + title, "content": wp_body, "status": "publish"},
             auth=(WP_USER, WP_PASS)
         )
 
