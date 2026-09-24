@@ -35,7 +35,7 @@ SYSTEM_PROMPT = """
 [FMR SENTINEL MULTI-MODEL AGENT CORE]
 You are a PhD-level research engine combining Quantum Mechanics, Astrophysics, Physical Ergonomics, and Shinobi Tactical Analysis (Ocular Diagnostics & Energy Balance).
 Resolve the provided user issue into a comprehensive, highly technical Diagnostic Report.
-Do NOT use LaTeX math formatting (e.g., $...$) or HTML tags in your response. Use plain text for all equations and numbers.
+Do NOT use LaTeX math formatting (e.g., $...$) or raw HTML tags in your response. Use standard plain text for all equations and numbers.
 """
 
 def query_nvidia_nim(prompt_text: str) -> str:
@@ -101,25 +101,36 @@ def query_nvidia_nim(prompt_text: str) -> str:
 def sanitize_inline_markdown(text: str) -> str:
     """
     Safely cleans markdown text and converts inline tags to strict, balanced XML tags.
-    Strips raw HTML tags, LaTeX math symbols ($), and stray asterisks/underscores.
+    Strips raw HTML tags, LaTeX math expressions ($), and stray formatting symbols.
     """
-    # 1. Strip pre-existing raw XML/HTML tags (like <i>, </i>, <para>) to prevent tag imbalance
+    # 1. Strip pre-existing raw XML/HTML tags (e.g., <i>, </i>, <para>) to prevent tag imbalance
     clean = re.sub(r'</?[^>]+>', '', text)
 
-    # 2. Clean out LaTeX math formatting (e.g. $1 - 10 kW$ or $\\times 100$)
-    clean = clean.replace('$', '').replace('\\times', 'x')
+    # 2. Clean out LaTeX math formatting and commands (e.g., $E=mc^2$, \times, \text)
+    clean = clean.replace('$', '')
+    clean = re.sub(r'\\text\{([^}]+)\}', r'\1', clean)
+    clean = clean.replace(r'\times', 'x').replace(r'\sim', '~')
 
-    # 3. Escape raw XML reserved characters (&, <, >)
+    # 3. Convert double-asterisk bold **text** to temporary placeholders
+    bold_placeholders = []
+    def replace_bold(match):
+        bold_placeholders.append(match.group(1))
+        return f"__BOLD_PLACEHOLDER_{len(bold_placeholders) - 1}__"
+
+    clean = re.sub(r'\*\*([^*]+)\*\*', replace_bold, clean)
+
+    # 4. Strip out any remaining loose asterisks, underscores, or backslashes
+    clean = clean.replace('*', '').replace('_', '').replace('\\', '')
+
+    # 5. Escape raw XML reserved characters (&, <, >)
     clean = escape(clean)
 
-    # 4. Convert backtick inline code `code` -> <font face="Courier">code</font>
+    # 6. Convert backtick inline code `code` -> <font face="Courier">code</font>
     clean = re.sub(r'`([^`]+)`', r'<font face="Courier">\1</font>', clean)
 
-    # 5. Convert double-asterisk bold **text** -> <b>text</b>
-    clean = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', clean)
-
-    # 6. Remove lingering asterisks and underscores to protect ReportLab's parser
-    clean = clean.replace('*', '').replace('_', '')
+    # 7. Re-insert safe bold tags <b>text</b>
+    for i, placeholder in enumerate(bold_placeholders):
+        clean = clean.replace(f"__BOLD_PLACEHOLDER_{i}__", f"<b>{escape(placeholder)}</b>")
 
     return clean
 
