@@ -19,9 +19,6 @@ class Actor(nn.Module):
     """
     def __init__(self, state_dim=16, action_dim=4):
         super(Actor, self).__init__()
-        # Layer 0: SE(3) Invariant Pre-filtering (Sentinel-N Layer 1 / Ocular Engine)
-        self.layer_norm = nn.LayerNorm(state_dim)
-
         # Layer 1: Holographic & Quantum Pre-filtering (Eq 2, 3)
         self.fc1 = nn.Linear(state_dim, 128)
         self.relu1 = nn.ReLU()
@@ -35,14 +32,7 @@ class Actor(nn.Module):
         self.tanh = nn.Tanh()  # Bounds output actions between [-1.0, 1.0]
 
     def forward(self, state):
-        # Apply SE(3) Invariant Projection (Translation & Rotation invariance for atoms)
-        mean_state = torch.mean(state, dim=-1, keepdim=True)
-        centered_state = state - mean_state
-        norm_factor = torch.norm(centered_state, p=2, dim=-1, keepdim=True) + 1e-8
-        invariant_state = self.layer_norm(centered_state / norm_factor)
-
-        # Proceed through existing neural architecture
-        x = self.relu1(self.fc1(invariant_state))
+        x = self.relu1(self.fc1(state))
         x = self.relu2(self.fc2(x))
         return self.tanh(self.out(x))
 
@@ -74,27 +64,24 @@ class Critic(nn.Module):
 def compute_tactical_reward(state, action, target_identity, dilation_ratio=6000.0):
     """
     Calculates the tactical active inference loss function and scales negative return
-    by the sandbox time dilation ratio. Upgraded to include Szilard Engine Negentropy.
+    by the sandbox time dilation ratio.
     """
     # Eq 4: Quantum Cramér-Rao Resolution Bound
     fisher_info = torch.mean(torch.square(state)) + 1e-6
     var_bound = 1.0 / fisher_info
     
-    # Eq 5: Szilard Information Ratchet (Local Entropy Reduction / Negentropy)
-    state_error = torch.mean(torch.square(state - target_identity))
-    negentropy_extracted = -torch.log(state_error + 1e-8) 
+    # Eq 5: Entropy Flow & Arrow of Time Constraint (Non-negative)
+    entropy_flow = torch.relu(torch.mean(action[:, 0])) 
     
-    # Eq 7: Metabolic Landauer Energy Expenditure (k_B * T * ln(2) limit)
-    k_B_temp = 0.0258 # Approximate thermal bound parameter
-    bit_cost = torch.sum(torch.abs(action))
-    landauer_cost = float(np.log(2)) * k_B_temp * bit_cost
+    # Eq 7: Metabolic Landauer Energy Expenditure
+    landauer_cost = 0.01 * torch.sum(torch.abs(action))
+    metabolic_energy = landauer_cost + entropy_flow
     
     # Eq 8: Active Inference Minimization (Reward = -Loss)
-    variational_free_energy = state_error + var_bound
+    variational_free_energy = torch.mean(torch.square(state - target_identity)) + var_bound
     lambda_param = 0.5
     
-    # Total tactical loss incorporates landauer cost minus the extracted negentropy
-    tactical_loss = variational_free_energy + (lambda_param * landauer_cost) - (0.1 * negentropy_extracted)
+    tactical_loss = variational_free_energy + (lambda_param * metabolic_energy)
     
     # Scale reward dynamically via quantum dilation ratio
     reward = -tactical_loss * (dilation_ratio / 1000.0)
