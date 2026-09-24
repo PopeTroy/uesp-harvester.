@@ -100,18 +100,25 @@ def query_nvidia_nim(prompt_text: str) -> str:
 def sanitize_inline_markdown(text: str) -> str:
     """
     Safely cleans markdown text and converts inline tags to strict, balanced XML tags.
-    Prevents mismatched or inverted tags (e.g. <b>...</i>...</b>).
+    Prevents mismatched or orphaned tags (e.g. </i> without <i>).
     """
-    # 1. Safely escape raw XML reserved characters
-    clean = escape(text)
+    # 1. Strip pre-existing raw XML italic and bold tags to avoid orphaned closing tags
+    clean = re.sub(r'</?(?:i|b|font)[^>]*>', '', text, flags=re.IGNORECASE)
 
-    # 2. Convert inline code `code`
+    # 2. Escape raw XML reserved characters (&, <, >)
+    clean = escape(clean)
+
+    # 3. Convert backtick inline code `code` -> <font face="Courier">code</font>
     clean = re.sub(r'`([^`]+)`', r'<font face="Courier">\1</font>', clean)
 
-    # 3. Convert double-asterisk bold **text**
+    # 4. Convert double-asterisk bold **text** -> <b>text</b>
     clean = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', clean)
 
-    # 4. Remove lingering single asterisks or math-related stars to prevent tag mismatches
+    # 5. Convert single-asterisk or single-underscore italic *text* or _text_ -> <i>text</i>
+    clean = re.sub(r'(?<!\*)\*([^*]+)\*(?!\*)', r'<i>\1</i>', clean)
+    clean = re.sub(r'\b_([^_]+)_\b', r'<i>\1</i>', clean)
+
+    # 6. Remove any leftover stray asterisks to protect ReportLab's parser
     clean = clean.replace('*', '')
 
     return clean
