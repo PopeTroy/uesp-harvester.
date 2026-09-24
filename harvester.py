@@ -100,10 +100,10 @@ def query_nvidia_nim(prompt_text: str) -> str:
 def sanitize_inline_markdown(text: str) -> str:
     """
     Safely cleans markdown text and converts inline tags to strict, balanced XML tags.
-    Prevents mismatched or orphaned tags (e.g. </i> without <i>).
+    Strips all italic tags entirely to prevent ReportLab parsing exceptions.
     """
-    # 1. Strip pre-existing raw XML italic and bold tags to avoid orphaned closing tags
-    clean = re.sub(r'</?(?:i|b|font)[^>]*>', '', text, flags=re.IGNORECASE)
+    # 1. Strip all raw HTML/XML italic tags completely
+    clean = re.sub(r'</?i[^>]*>', '', text, flags=re.IGNORECASE)
 
     # 2. Escape raw XML reserved characters (&, <, >)
     clean = escape(clean)
@@ -114,12 +114,11 @@ def sanitize_inline_markdown(text: str) -> str:
     # 4. Convert double-asterisk bold **text** -> <b>text</b>
     clean = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', clean)
 
-    # 5. Convert single-asterisk or single-underscore italic *text* or _text_ -> <i>text</i>
-    clean = re.sub(r'(?<!\*)\*([^*]+)\*(?!\*)', r'<i>\1</i>', clean)
-    clean = re.sub(r'\b_([^_]+)_\b', r'<i>\1</i>', clean)
+    # 5. Remove lingering single asterisks, underscores, or math-related stars
+    clean = clean.replace('*', '').replace('_', '')
 
-    # 6. Remove any leftover stray asterisks to protect ReportLab's parser
-    clean = clean.replace('*', '')
+    # 6. Final safety check: scrub any surviving italic closing tags
+    clean = re.sub(r'</?i[^>]*>', '', clean, flags=re.IGNORECASE)
 
     return clean
 
@@ -155,7 +154,7 @@ def format_text_to_story(text: str, story: list, styles: dict):
             story.append(Paragraph(f"• {formatted}", bullet_style))
         elif line_str.startswith('> '):
             formatted = sanitize_inline_markdown(line_str[2:])
-            story.append(Paragraph(f"<i>{formatted}</i>", bullet_style))
+            story.append(Paragraph(formatted, bullet_style))
         else:
             formatted = sanitize_inline_markdown(line_str)
             story.append(Paragraph(formatted, body_style))
