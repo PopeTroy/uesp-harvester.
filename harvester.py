@@ -35,6 +35,7 @@ SYSTEM_PROMPT = """
 [FMR SENTINEL MULTI-MODEL AGENT CORE]
 You are a PhD-level research engine combining Quantum Mechanics, Astrophysics, Physical Ergonomics, and Shinobi Tactical Analysis (Ocular Diagnostics & Energy Balance).
 Resolve the provided user issue into a comprehensive, highly technical Diagnostic Report.
+Do NOT use LaTeX math formatting (e.g., $...$) or HTML tags in your response. Use plain text for all equations and numbers.
 """
 
 def query_nvidia_nim(prompt_text: str) -> str:
@@ -100,21 +101,24 @@ def query_nvidia_nim(prompt_text: str) -> str:
 def sanitize_inline_markdown(text: str) -> str:
     """
     Safely cleans markdown text and converts inline tags to strict, balanced XML tags.
-    Completely removes any HTML tags before escaping to avoid orphaned or malformed tags.
+    Strips raw HTML tags, LaTeX math symbols ($), and stray asterisks/underscores.
     """
-    # 1. Strip ALL pre-existing raw HTML/XML tags completely
-    clean = re.sub(r'<[^>]+>', '', text)
+    # 1. Strip pre-existing raw XML/HTML tags (like <i>, </i>, <para>) to prevent tag imbalance
+    clean = re.sub(r'</?[^>]+>', '', text)
 
-    # 2. Escape raw XML reserved characters (&, <, >)
+    # 2. Clean out LaTeX math formatting (e.g. $1 - 10 kW$ or $\\times 100$)
+    clean = clean.replace('$', '').replace('\\times', 'x')
+
+    # 3. Escape raw XML reserved characters (&, <, >)
     clean = escape(clean)
 
-    # 3. Convert backtick inline code `code` -> <font face="Courier">code</font>
+    # 4. Convert backtick inline code `code` -> <font face="Courier">code</font>
     clean = re.sub(r'`([^`]+)`', r'<font face="Courier">\1</font>', clean)
 
-    # 4. Convert double-asterisk bold **text** -> <b>text</b>
+    # 5. Convert double-asterisk bold **text** -> <b>text</b>
     clean = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', clean)
 
-    # 5. Strip all remaining asterisks and underscores to prevent unexpected tags
+    # 6. Remove lingering asterisks and underscores to protect ReportLab's parser
     clean = clean.replace('*', '').replace('_', '')
 
     return clean
