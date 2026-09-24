@@ -117,15 +117,12 @@ class PIDController:
 class LocalMLAdapter:
     """Simple stochastic gradient update model to auto-tune PID gains."""
 
-    def __init__(self, lr=0.01, min_kp=0.1, max_kp=10.0):
+    def __init__(self, lr=0.01):
         self.lr = lr
-        self.min_kp = min_kp
-        self.max_kp = max_kp
 
     def tune_pid(self, pid_instance, performance_error):
-        # Dynamically adjust proportional gain with stability bounds
-        updated_kp = pid_instance.Kp + (self.lr * performance_error)
-        pid_instance.Kp = np.clip(updated_kp, self.min_kp, self.max_kp)
+        # Dynamically adjust proportional gain based on systemic error rate
+        pid_instance.Kp += self.lr * performance_error
 
 
 # ==========================================
