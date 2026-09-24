@@ -23,8 +23,8 @@ NVIDIA_KEY = os.getenv("NVIDIA_API_KEY")
 
 LOGO_URL = "https://celsiustechmediagroup.co.za/wp-content/uploads/2026/01/CTMG.webp"
 
-# Targeting Downloadable Local Container NIM Endpoint with NGC fallback
-NVIDIA_ENDPOINT = os.getenv("NVIDIA_ENDPOINT", "http://localhost:8000/v1/chat/completions")
+# Target local downloadable container endpoint explicitly
+DEFAULT_LOCAL_ENDPOINT = "http://localhost:8000/v1/chat/completions"
 NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
 
 COMPANY_DETAILS = """
@@ -111,7 +111,13 @@ class SafePlainTextFlowable(Flowable):
 
 
 def query_nvidia_nim(prompt_text: str) -> str:
-    endpoint = os.getenv("NVIDIA_ENDPOINT", NVIDIA_ENDPOINT)
+    # Strictly prefer local host over external integrate.api.nvidia.com
+    env_endpoint = os.getenv("LOCAL_NIM_ENDPOINT") or os.getenv("NVIDIA_ENDPOINT")
+    if not env_endpoint or "integrate.api.nvidia.com" in env_endpoint:
+        endpoint = DEFAULT_LOCAL_ENDPOINT
+    else:
+        endpoint = env_endpoint
+
     api_key = os.getenv("NVIDIA_API_KEY", NVIDIA_KEY)
 
     headers = {
@@ -151,7 +157,7 @@ def query_nvidia_nim(prompt_text: str) -> str:
             f"- Quantum Dilation: 1:6000 Ratio Applied\n"
             f"- SIMD Vector Engine: AVX2 Hardware Accelerated\n"
             f"- Policy Optimization: DDPG ONNX Checkpoint Validated\n"
-            f"- Notice: External endpoint error ({e}). Local fallback applied."
+            f"- Notice: Endpoint communication error ({e}). Local fallback applied."
         )
 
 
