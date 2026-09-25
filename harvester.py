@@ -1,6 +1,7 @@
 import os
 import time
 import re
+import html
 from xml.sax.saxutils import escape
 import requests
 from requests.adapters import HTTPAdapter
@@ -10,7 +11,7 @@ import numpy as np
 import uesp_quantum_core  # Compiled Rust Module
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 
@@ -40,6 +41,12 @@ SYSTEM_PROMPT = """
 [FMR SENTINEL MULTI-MODEL AGENT CORE]
 You are a PhD-level research engine combining Quantum Mechanics, Astrophysics, Physical Ergonomics, and Shinobi Tactical Analysis (Ocular Diagnostics & Energy Balance).
 Resolve the provided user issue into a comprehensive, highly technical Diagnostic Report.
+
+CRITICAL FORMATTING INSTRUCTIONS:
+- Structure output using clean Markdown headers (#, ##, ###).
+- Use standard text for equations (avoid LaTeX symbols like $ or \\).
+- DO NOT use raw HTML line breaks like <br/>.
+- Complete all sections fully. Do not leave trailing thoughts or ellipses (...).
 """
 
 def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
@@ -126,9 +133,9 @@ def query_nvidia_nim(prompt_text: str) -> str:
                 {"role": "user", "content": prompt_text}
             ],
             "temperature": 0.2,
-            "max_tokens": 2048
+            "max_tokens": 4096  # Increased to prevent response truncation
         }
-        response = session.post(endpoint, headers=headers, json=primary_payload, timeout=(10, 60))
+        response = session.post(endpoint, headers=headers, json=primary_payload, timeout=(10, 180))
         if response.status_code == 200:
             return response.json()["choices"][0]["message"]["content"]
         else:
@@ -146,9 +153,9 @@ def query_nvidia_nim(prompt_text: str) -> str:
                 {"role": "user", "content": prompt_text}
             ],
             "temperature": 0.2,
-            "max_tokens": 2048
+            "max_tokens": 4096  # Increased to prevent response truncation
         }
-        response = session.post(endpoint, headers=headers, json=secondary_payload, timeout=(10, 60))
+        response = session.post(endpoint, headers=headers, json=secondary_payload, timeout=(10, 180))
         if response.status_code == 200:
             return response.json()["choices"][0]["message"]["content"]
         else:
@@ -166,28 +173,126 @@ def format_text_for_reportlab(text: str) -> str:
     Sanitizes raw model output and converts basic Markdown tags to valid ReportLab XML.
     Strips unsupported tags like <a rel="..."> that break paraparser.
     """
-    # 1. Strip raw HTML tags that ReportLab paraparser cannot process (e.g. <link>, <a rel=...>, <div>)
+    # 1. Clean out raw HTML linebreaks and unsupported XML elements
     text = re.sub(r'</?(?:link|div|span|p|a|table|tr|td|th|tbody|thead|code|pre|img)[^>]*>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<br\s*/?>', ' ', text, flags=re.IGNORECASE)
 
-    # 2. Safely escape XML reserved characters (&, <, >) so math operators don't break XML parsing
+    # 2. Strip raw LaTeX math symbols ($ and \)
+    text = text.replace('$', '').replace('\\', '')
+
+    # 3. Safely escape XML reserved characters
+    text = html.unescape(text)
     text = escape(text)
 
-    # 3. Re-inject safe inline ReportLab styling from basic Markdown
+    # 4. Re-inject safe inline ReportLab styling from basic Markdown
     text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)               # **bold** -> <b>bold</b>
     text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)                   # *italic* -> <i>italic</i>
+    text = re.sub(r'_(.*?)_', r'<i>\1</i>', text)                     # _italic_ -> <i>italic</i>
     text = re.sub(r'`(.*?)`', r'<font face="Courier">\1</font>', text) # `code` -> inline mono
 
-    # 4. Map linebreaks to ReportLab breaks
-    return text.replace('\n', '<br/>')
+    return text.strip()
+
+
+def parse_markdown_to_story(text: str, story: list, styles: dict):
+    """
+    Parses Markdown headers, lists, and tables into flowable ReportLab elements.
+    Converts raw table markup into native ReportLab Table objects.
+    """
+    lines = text.split('\n')
+    table_buffer = []
+
+    def flush_table_buffer():
+        nonlocal table_buffer
+        if not table_buffer:
+            return
+        
+        rows = []
+        for tbl_line in table_buffer:
+            if re.match(r'^\s*\|?\s*:?-+:?\s*(\|', tbl_line):
+                continue
+            cols = [format_text_for_reportlab(c.strip()) for c in tbl_line.strip('|').split('|')]
+            if any(cols):
+                rows.append([Paragraph(c, styles['TableCell']) for c in cols])
+        
+        if rows:
+            num_cols = max(len(r) for r in rows)
+            col_width = (7.0 * inch) / max(1, num_cols)
+            t = Table(rows, colWidths=[col_width] * num_cols)
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#003366')),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,-1), 8),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+                ('TOPPADDING', (0,0), (-1,-1), 5),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#b2dfdb')),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f5f5f5')])
+            ]))
+            story.append(Spacer(1, 4))
+            story.append(t)
+            story.append(Spacer(1, 6))
+        
+        table_buffer = []
+
+    for line in lines:
+        line_str = line.strip()
+        
+        if line_str.startswith('|') and line_str.endswith('|'):
+            table_buffer.append(line_str)
+            continue
+        else:
+            flush_table_buffer()
+
+        if not line_str or line_str == '...':
+            continue
+
+        cleaned = format_text_for_reportlab(line_str)
+
+        if line_str.startswith('# '):
+            story.append(Spacer(1, 8))
+            story.append(Paragraph(cleaned[2:].strip(), styles['H1']))
+            story.append(Spacer(1, 4))
+        elif line_str.startswith('## '):
+            story.append(Spacer(1, 6))
+            story.append(Paragraph(cleaned[3:].strip(), styles['H2']))
+            story.append(Spacer(1, 4))
+        elif line_str.startswith('### ') or line_str.startswith('#### '):
+            h_text = re.sub(r'^#+\s*', '', cleaned).strip()
+            story.append(Spacer(1, 4))
+            story.append(Paragraph(h_text, styles['H3']))
+            story.append(Spacer(1, 2))
+        elif line_str.startswith('- ') or line_str.startswith('* ') or line_str.startswith('> '):
+            bullet_text = re.sub(r'^[-*>]\s*', '', cleaned).strip()
+            story.append(Paragraph(f"• {bullet_text}", styles['Bullet']))
+            story.append(Spacer(1, 2))
+        elif re.match(r'^\d+\.\s', line_str):
+            story.append(Paragraph(cleaned, styles['Numbered']))
+            story.append(Spacer(1, 2))
+        else:
+            story.append(Paragraph(cleaned, styles['Body']))
+            story.append(Spacer(1, 3))
+
+    flush_table_buffer()
 
 
 def generate_pdf_artifact(filename, title, content, session_id):
     doc = SimpleDocTemplate(filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-    styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=15, textColor=colors.HexColor('#003366'))
-    body_style = ParagraphStyle('DocBody', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=13)
-    comp_style = ParagraphStyle('CompBox', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=11, textColor=colors.HexColor('#004d40'))
+    # Modular Document Palette & Paragraph Styles
+    custom_styles = {
+        'DocTitle': ParagraphStyle('DocTitle', fontName='Helvetica-Bold', fontSize=14, leading=17, textColor=colors.HexColor('#003366')),
+        'DocBody': ParagraphStyle('DocBody', fontName='Helvetica', fontSize=8.5, leading=11.5, textColor=colors.HexColor('#333333')),
+        'CompBox': ParagraphStyle('CompBox', fontName='Helvetica', fontSize=8, leading=11, textColor=colors.HexColor('#004d40')),
+        'H1': ParagraphStyle('H1', fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#003366'), keepWithNext=True),
+        'H2': ParagraphStyle('H2', fontName='Helvetica-Bold', fontSize=10.5, leading=13.5, textColor=colors.HexColor('#004d40'), keepWithNext=True),
+        'H3': ParagraphStyle('H3', fontName='Helvetica-Bold', fontSize=9.5, leading=12, textColor=colors.HexColor('#006699'), keepWithNext=True),
+        'Body': ParagraphStyle('Body', fontName='Helvetica', fontSize=8.5, leading=11.5, textColor=colors.HexColor('#222222')),
+        'Bullet': ParagraphStyle('Bullet', fontName='Helvetica', fontSize=8.5, leading=11.5, leftIndent=12, textColor=colors.HexColor('#222222')),
+        'Numbered': ParagraphStyle('Numbered', fontName='Helvetica', fontSize=8.5, leading=11.5, leftIndent=12, textColor=colors.HexColor('#222222')),
+        'TableCell': ParagraphStyle('TableCell', fontName='Helvetica', fontSize=7.5, leading=9.5, textColor=colors.HexColor('#111111'))
+    }
 
     story = []
 
@@ -197,9 +302,9 @@ def generate_pdf_artifact(filename, title, content, session_id):
         with open("logo.webp", "wb") as f: f.write(r.content)
         logo_img = Image("logo.webp", width=1.8 * inch, height=0.6 * inch)
     except Exception:
-        logo_img = Paragraph("<b>CELSIUS TECH MEDIA GROUP</b>", title_style)
+        logo_img = Paragraph("<b>CELSIUS TECH MEDIA GROUP</b>", custom_styles['DocTitle'])
 
-    header_table = Table([[logo_img, Paragraph(COMPANY_DETAILS, body_style)]], colWidths=[3.5 * inch, 3.5 * inch])
+    header_table = Table([[logo_img, Paragraph(COMPANY_DETAILS, custom_styles['DocBody'])]], colWidths=[3.5 * inch, 3.5 * inch])
     header_table.setStyle(TableStyle([('ALIGN', (1,0), (1,0), 'RIGHT'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
     story.append(header_table)
     story.append(Spacer(1, 10))
@@ -212,7 +317,7 @@ def generate_pdf_artifact(filename, title, content, session_id):
         f"• Edge Acceleration: AVX2 SIMD Vectorized<br/>"
         f"• Learning Sandbox Policy: DDPG Continuous RL (Aetheric Archon ONNX Active)"
     )
-    comp_table = Table([[Paragraph(compliance_text, comp_style)]], colWidths=[7.0 * inch])
+    comp_table = Table([[Paragraph(compliance_text, custom_styles['CompBox'])]], colWidths=[7.0 * inch])
     comp_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#e0f2f1')),
         ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#004d40')),
@@ -221,13 +326,13 @@ def generate_pdf_artifact(filename, title, content, session_id):
     story.append(comp_table)
     story.append(Spacer(1, 15))
 
-    story.append(Paragraph(f"<b>UESP DIAGNOSTIC REPORT:</b> {escape(title)}", title_style))
+    story.append(Paragraph(f"<b>UESP DIAGNOSTIC REPORT:</b> {escape(title)}", custom_styles['DocTitle']))
     story.append(Spacer(1, 8))
 
-    # Clean and sanitize content prior to paragraph rendering
-    sanitized_report = format_text_for_reportlab(content)
-    story.append(Paragraph(sanitized_report, body_style))
+    # Parse multi-page body content
+    parse_markdown_to_story(content, story, custom_styles)
 
+    # Build multi-page PDF dynamically
     doc.build(story)
 
 
