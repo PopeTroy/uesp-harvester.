@@ -51,29 +51,30 @@ CRITICAL FORMATTING INSTRUCTIONS:
 
 def safe_paragraph(text: str, style) -> Paragraph:
     """
-    Safely creates a ReportLab Paragraph by sanitizing all unescaped / malformed tags.
+    Safely creates a ReportLab Paragraph by sanitizing reserved characters,
+    formatting code/bold spans, and gracefully falling back to plain text if XML parsing fails.
     """
-    # 1. Clean HTML line breaks & bad elements
-    text = re.sub(r'</?(?:link|div|span|p|a|table|tr|td|th|tbody|thead|code|pre|img|para)[^>]*>', '', text, flags=re.IGNORECASE)
+    # 1. Strip raw HTML tags except standard break constructs
+    text = re.sub(r'</?(?:link|div|span|p|a|table|tr|td|th|tbody|thead|code|pre|img|para|i|b|font)[^>]*>', '', text, flags=re.IGNORECASE)
     text = re.sub(r'<br\s*/?>', ' ', text, flags=re.IGNORECASE)
 
-    # 2. Remove LaTeX math symbols ($ and \)
+    # 2. Strip LaTeX math symbols ($ and \)
     text = text.replace('$', '').replace('\\', '')
 
-    # 3. Unescape raw html entities then XML escape standard reserved chars
+    # 3. Clean entities and escape raw XML special characters (&, <, >)
     text = html.unescape(text)
     text = escape(text)
 
-    # 4. Safely re-apply markdown styling (isolated)
+    # 4. Safely apply non-colliding inline formatting (bold and monospace code)
     text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
     text = re.sub(r'`(.*?)`', r'<font face="Courier">\1</font>', text)
 
-    # 5. Fallback: If inline tags are misnested or broken, strip all HTML/XML tags
+    # 5. Attempt rendering; strip all residual markup if ReportLab fails
     try:
         return Paragraph(text, style)
     except Exception:
-        clean_plain_text = re.sub(r'<[^>]+>', '', text)
-        return Paragraph(clean_plain_text, style)
+        clean_text = re.sub(r'<[^>]+>', '', text)
+        return Paragraph(clean_text, style)
 
 
 def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
