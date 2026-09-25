@@ -7,5 +7,6 @@ numpy>=1.24.0
 maturin>=1.4.0
 onnxscript
 sentence-transformers
+transformers
 faiss-cpu
 llama-cpp-python
