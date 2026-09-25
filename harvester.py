@@ -9,9 +9,6 @@ from urllib3.util import Retry
 import onnxruntime as ort
 import numpy as np
 import uesp_quantum_core  # Compiled Rust Module
-from sentence_transformers import SentenceTransformer
-import faiss
-from llama_cpp import Llama
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, KeepTogether
@@ -28,12 +25,10 @@ LOGO_URL = "https://celsiustechmediagroup.co.za/wp-content/uploads/2026/01/CTMG.
 NVIDIA_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
 
 # Primary & Secondary NVIDIA Microservices Models
-PRIMARY_NIM_MODEL = os.getenv("PRIMARY_NIM_MODEL", "nvidia/nemotron-4-340b-instruct")
+PRIMARY_NIM_MODEL = os.getenv("PRIMARY_NIM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
 SECONDARY_NIM_MODEL = os.getenv("SECONDARY_NIM_MODEL", "meta/llama-3.3-70b-instruct")
 
 ONNX_MODEL_PATH = "ddpg_sentinel_policy.onnx"
-LOCAL_LLM_PATH = os.getenv("LOCAL_LLM_PATH", "models/llama-3.2-3b-instruct.Q4_K_M.gguf")
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
 COMPANY_DETAILS = """
 <b>Celsius Tech Media Group</b><br/>
@@ -53,35 +48,6 @@ CRITICAL FORMATTING INSTRUCTIONS:
 - DO NOT use raw HTML line breaks like <br/>.
 - Complete all sections fully. Do not leave trailing thoughts or ellipses (...).
 """
-
-# In-Memory Domain Knowledge Base for Ephemeral RAG Construction
-KNOWLEDGE_BASE_CORPUS = [
-    "Xenobiology explores non-terrestrial biological architectures, alternate nucleic acids (XNA), and exotic metabolic pathways.",
-    "Stellar energy transmutation requires metabolic stabilization using quantum-dilated bio-nanite arrays operating at 1:6000 dilation ratios.",
-    "Physical Ergonomics in high-energy environments requires AVX2 SIMD real-time sensor processing for kinetic strain prevention.",
-    "Ocular Diagnostics monitor bio-energy dissipation across temporal state vectors during high-density chakra synthesis.",
-    "Active Inference free-energy minimization optimizes real-time biological feedback loops under thermodynamic pressure."
-]
-
-# ---------------------------------------------------------------------------
-# Ephemeral RAG Engine
-# ---------------------------------------------------------------------------
-class EphemeralRAGEngine:
-    def __init__(self, corpus: list[str]):
-        self.encoder = SentenceTransformer(EMBEDDING_MODEL_NAME)
-        self.corpus = corpus
-        embeddings = self.encoder.encode(corpus, convert_to_numpy=True)
-        dimension = embeddings.shape[1]
-        
-        self.index = faiss.IndexFlatL2(dimension)
-        self.index.add(embeddings.astype(np.float32))
-
-    def retrieve_context(self, query: str, top_k: int = 2) -> str:
-        query_vec = self.encoder.encode([query], convert_to_numpy=True).astype(np.float32)
-        distances, indices = self.index.search(query_vec, top_k)
-        retrieved = [self.corpus[idx] for idx in indices[0] if idx < len(self.corpus)]
-        return "\n".join(retrieved)
-
 
 def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
     """
@@ -131,57 +97,16 @@ def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
         return f"# Diagnostic Report (Local System Fallback)\n\n**Payload:** {prompt_text}\n\n*Error running local ONNX model: {e}*"
 
 
-def run_local_rag_text_synthesis(prompt_text: str) -> str:
-    """
-    Executes an ephemeral vector retrieval pipeline and passes context to a local GGUF LLM,
-    falling back to ONNX synthesis if local LLM artifacts are missing.
-    """
-    print("🌀 Building Ephemeral In-Memory FAISS Vector Index...")
-    try:
-        rag = EphemeralRAGEngine(KNOWLEDGE_BASE_CORPUS)
-        retrieved_context = rag.retrieve_context(prompt_text, top_k=3)
-        print(f"📥 Context Retrieved via RAG:\n{retrieved_context}")
-        
-        augmented_prompt = (
-            f"Context Information:\n{retrieved_context}\n\n"
-            f"User Query: {prompt_text}\n\n"
-            f"Synthesize a highly technical diagnostic report incorporating the provided context."
-        )
-
-        if os.path.exists(LOCAL_LLM_PATH):
-            print(f"🤖 Executing Local LLM Inference [{LOCAL_LLM_PATH}]...")
-            llm = Llama(model_path=LOCAL_LLM_PATH, n_ctx=2048, verbose=False)
-            response = llm(
-                f"System: {SYSTEM_PROMPT}\nUser: {augmented_prompt}\nAssistant:",
-                max_tokens=1024,
-                temperature=0.2,
-                stop=["User:", "\n\n\n"]
-            )
-            return response["choices"][0]["text"].strip()
-        else:
-            print("[WARN] Local GGUF LLM binary missing. Cascading to ONNX model engine with RAG telemetry...")
-            onnx_report = run_aetheric_archon_onnx_synthesis(prompt_text)
-            return (
-                f"{onnx_report}\n\n"
-                f"### Ephemeral RAG Retrieved Context\n"
-                f"{retrieved_context}"
-            )
-
-    except Exception as e:
-        print(f"[ERROR] Local Ephemeral RAG Synthesis Failed: {e}. Diverting to ONNX engine...")
-        return run_aetheric_archon_onnx_synthesis(prompt_text)
-
-
 def query_nvidia_nim(prompt_text: str) -> str:
     """
-    Queries Primary NVIDIA NIM -> Secondary NVIDIA NIM -> Local Ephemeral RAG / ONNX Pipeline.
+    Queries Primary NVIDIA NIM -> Secondary NVIDIA NIM -> Local Aetheric Archon ONNX Model.
     """
     endpoint = os.getenv("NVIDIA_ENDPOINT", NVIDIA_ENDPOINT)
     api_key = os.getenv("NVIDIA_API_KEY", NVIDIA_KEY)
     
     if not api_key:
-        print("[WARN] NVIDIA_API_KEY missing. Diverting to local Ephemeral RAG text engine.")
-        return run_local_rag_text_synthesis(prompt_text)
+        print("[WARN] NVIDIA_API_KEY missing. Diverting to local Aetheric Archon ONNX Model.")
+        return run_aetheric_archon_onnx_synthesis(prompt_text)
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -208,13 +133,13 @@ def query_nvidia_nim(prompt_text: str) -> str:
                 {"role": "user", "content": prompt_text}
             ],
             "temperature": 0.2,
-            "max_tokens": 4096
+            "max_tokens": 4096  # Increased to prevent response truncation
         }
         response = session.post(endpoint, headers=headers, json=primary_payload, timeout=(10, 180))
         if response.status_code == 200:
             return response.json()["choices"][0]["message"]["content"]
         else:
-            print(f"[WARN] Primary NIM failed with HTTP {response.status_code}: {response.text}")
+            print(f"[WARN] Primary NIM failed with HTTP {response.status_code}.")
     except Exception as e:
         print(f"[WARN] Primary NVIDIA NIM Microservice timed out or failed: {e}")
 
@@ -228,19 +153,19 @@ def query_nvidia_nim(prompt_text: str) -> str:
                 {"role": "user", "content": prompt_text}
             ],
             "temperature": 0.2,
-            "max_tokens": 4096
+            "max_tokens": 4096  # Increased to prevent response truncation
         }
         response = session.post(endpoint, headers=headers, json=secondary_payload, timeout=(10, 180))
         if response.status_code == 200:
             return response.json()["choices"][0]["message"]["content"]
         else:
-            print(f"[WARN] Secondary NIM failed with HTTP {response.status_code}: {response.text}")
+            print(f"[WARN] Secondary NIM failed with HTTP {response.status_code}.")
     except Exception as e:
         print(f"[WARN] Secondary NVIDIA NIM Microservice failed: {e}")
 
-    # --- TIER 3: ON-PREMISES LOCAL EPHEMERAL RAG & ONNX MODEL PIPELINE ---
-    print("🔒 External APIs unreachable. Executing local Ephemeral RAG / ONNX synthesis pipeline...")
-    return run_local_rag_text_synthesis(prompt_text)
+    # --- TIER 3: ON-PREMISES AETHERIC ARCHON OTSUTSUKI ONNX MODEL ---
+    print("🔒 External NIM Microservices unreachable. Activating local ONNX hyper-parallel model...")
+    return run_aetheric_archon_onnx_synthesis(prompt_text)
 
 
 def format_text_for_reportlab(text: str) -> str:
@@ -419,7 +344,7 @@ def process_and_run(title, issue_text):
     sample_data = [1.2, 2.3, 3.4, 4.5, 5.6, 6.7, 7.8, 8.9]
     transformed_simd = uesp_quantum_core.avx2_quantum_tensor_transform(sample_data)
 
-    # 3. Primary & Secondary NIM Reasoning with Local Ephemeral RAG / ONNX Failover
+    # 3. Primary & Secondary NIM Reasoning with Local Aetheric Archon ONNX Failover
     report_text = query_nvidia_nim(issue_text)
 
     # 4. Build PDF Artifact
