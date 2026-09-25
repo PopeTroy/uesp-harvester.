@@ -37,8 +37,8 @@ jobs:
       - name: Install Python Dependencies & Maturin
         run: |
           python -m pip install --upgrade pip
-          pip install --force-reinstall sentence-transformers faiss-cpu llama-cpp-python
           pip install -r requirements.txt maturin
+          pip install --force-reinstall sentence-transformers faiss-cpu llama-cpp-python
 
       - name: Ensure Rust Files Exist
         run: |
