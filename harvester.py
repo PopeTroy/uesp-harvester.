@@ -10,7 +10,7 @@ import onnxruntime as ort
 import numpy as np
 import uesp_quantum_core  # Compiled Rust Module
 
-# Safe optional imports with fallback handling
+# Safe optional imports with fallback handling (Fixes Line 12 ModuleNotFoundError)
 try:
     from sentence_transformers import SentenceTransformer
     HAS_SENTENCE_TRANSFORMERS = True
