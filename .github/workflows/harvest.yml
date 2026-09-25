@@ -34,14 +34,10 @@ jobs:
           toolchain: stable
           targets: x86_64-unknown-linux-gnu
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake
-
       - name: Install Python Dependencies & Maturin
         run: |
           python -m pip install --upgrade pip
+          pip install sentence-transformers faiss-cpu llama-cpp-python
           pip install -r requirements.txt maturin
 
       - name: Ensure Rust Files Exist
