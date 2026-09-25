@@ -196,7 +196,8 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
         
         rows = []
         for tbl_line in table_buffer:
-            if re.match(r'^\s*\|?\s*:?-+:?\s*(\|', tbl_line):
+            # FIXED: Corrected invalid regex syntax
+            if re.match(r'^\s*\|?\s*:?-+:?\s*\|', tbl_line):
                 continue
             cols = [c.strip() for c in tbl_line.strip('|').split('|')]
             if any(cols):
