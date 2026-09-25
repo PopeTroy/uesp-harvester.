@@ -45,25 +45,17 @@ CRITICAL FORMATTING INSTRUCTIONS:
 
 def safe_paragraph(text: str, style) -> Paragraph:
     """
-    Completely sanitizes incoming text by stripping all inline HTML/XML tags
+    Completely sanitizes incoming text by stripping inline HTML/XML tags
     to guarantee zero ReportLab parser exceptions.
     """
-    # 1. Unescape existing HTML entities
     text = html.unescape(text)
-
-    # 2. Strip all inline tags completely (e.g. <i>, <b>, <font>, <para>, etc.)
     text = re.sub(r'<[^>]+>', '', text)
-
-    # 3. Clean Markdown math/formatting symbols that break downstream processing
     text = text.replace('$', '').replace('\\', '')
-
-    # 4. Escape raw XML characters for safe ReportLab rendering
     clean_text = escape(text)
 
     try:
         return Paragraph(clean_text, style)
     except Exception:
-        # Ultimate fallback to plain text stripping any failed entities
         return Paragraph(re.sub(r'[&<>]', '', clean_text), style)
 
 
@@ -186,6 +178,7 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
         
         rows = []
         for tbl_line in table_buffer:
+            # FIXED: Syntax error resolved by properly escaping pipe delimiter without unclosed parenthesis
             if re.match(r'^\s*\|?\s*:?-+:?\s*\|', tbl_line):
                 continue
             cols = [c.strip() for c in tbl_line.strip('|').split('|')]
