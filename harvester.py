@@ -9,29 +9,9 @@ from urllib3.util import Retry
 import onnxruntime as ort
 import numpy as np
 import uesp_quantum_core  # Compiled Rust Module
-
-# Safe optional imports with fallback handling (Fixes Line 12 ModuleNotFoundError)
-try:
-    from sentence_transformers import SentenceTransformer
-    HAS_SENTENCE_TRANSFORMERS = True
-except ImportError:
-    SentenceTransformer = None
-    HAS_SENTENCE_TRANSFORMERS = False
-
-try:
-    import faiss
-    HAS_FAISS = True
-except ImportError:
-    faiss = None
-    HAS_FAISS = False
-
-try:
-    from llama_cpp import Llama
-    HAS_LLAMA_CPP = True
-except ImportError:
-    Llama = None
-    HAS_LLAMA_CPP = False
-
+from sentence_transformers import SentenceTransformer
+import faiss
+from llama_cpp import Llama
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, KeepTogether
@@ -88,8 +68,6 @@ KNOWLEDGE_BASE_CORPUS = [
 # ---------------------------------------------------------------------------
 class EphemeralRAGEngine:
     def __init__(self, corpus: list[str]):
-        if not HAS_SENTENCE_TRANSFORMERS or not HAS_FAISS:
-            raise ImportError("sentence_transformers or faiss packages are missing.")
         self.encoder = SentenceTransformer(EMBEDDING_MODEL_NAME)
         self.corpus = corpus
         embeddings = self.encoder.encode(corpus, convert_to_numpy=True)
@@ -99,8 +77,6 @@ class EphemeralRAGEngine:
         self.index.add(embeddings.astype(np.float32))
 
     def retrieve_context(self, query: str, top_k: int = 2) -> str:
-        if not HAS_SENTENCE_TRANSFORMERS or not HAS_FAISS:
-            return ""
         query_vec = self.encoder.encode([query], convert_to_numpy=True).astype(np.float32)
         distances, indices = self.index.search(query_vec, top_k)
         retrieved = [self.corpus[idx] for idx in indices[0] if idx < len(self.corpus)]
@@ -158,12 +134,8 @@ def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
 def run_local_rag_text_synthesis(prompt_text: str) -> str:
     """
     Executes an ephemeral vector retrieval pipeline and passes context to a local GGUF LLM,
-    falling back to ONNX synthesis if local LLM artifacts or RAG packages are missing.
+    falling back to ONNX synthesis if local LLM artifacts are missing.
     """
-    if not HAS_SENTENCE_TRANSFORMERS or not HAS_FAISS:
-        print("[WARN] RAG dependencies missing. Cascading directly to ONNX model engine...")
-        return run_aetheric_archon_onnx_synthesis(prompt_text)
-
     print("🌀 Building Ephemeral In-Memory FAISS Vector Index...")
     try:
         rag = EphemeralRAGEngine(KNOWLEDGE_BASE_CORPUS)
@@ -176,7 +148,7 @@ def run_local_rag_text_synthesis(prompt_text: str) -> str:
             f"Synthesize a highly technical diagnostic report incorporating the provided context."
         )
 
-        if HAS_LLAMA_CPP and os.path.exists(LOCAL_LLM_PATH):
+        if os.path.exists(LOCAL_LLM_PATH):
             print(f"🤖 Executing Local LLM Inference [{LOCAL_LLM_PATH}]...")
             llm = Llama(model_path=LOCAL_LLM_PATH, n_ctx=2048, verbose=False)
             response = llm(
@@ -187,7 +159,7 @@ def run_local_rag_text_synthesis(prompt_text: str) -> str:
             )
             return response["choices"][0]["text"].strip()
         else:
-            print("[WARN] Local GGUF LLM binary missing or llama_cpp not installed. Cascading to ONNX model engine with RAG telemetry...")
+            print("[WARN] Local GGUF LLM binary missing. Cascading to ONNX model engine with RAG telemetry...")
             onnx_report = run_aetheric_archon_onnx_synthesis(prompt_text)
             return (
                 f"{onnx_report}\n\n"
