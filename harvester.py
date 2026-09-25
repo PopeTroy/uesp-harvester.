@@ -45,18 +45,27 @@ CRITICAL FORMATTING INSTRUCTIONS:
 
 def safe_paragraph(text: str, style) -> Paragraph:
     """
-    Completely sanitizes incoming text by stripping inline HTML/XML tags
+    Completely sanitizes incoming text by stripping all inline HTML/XML tags
     to guarantee zero ReportLab parser exceptions.
     """
+    # 1. Unescape HTML entities
     text = html.unescape(text)
+
+    # 2. Strip all HTML/XML tags completely (<font>, <i>, <b>, <para>, etc.)
     text = re.sub(r'<[^>]+>', '', text)
+
+    # 3. Clean LaTeX and math symbols that break downstream parsing
     text = text.replace('$', '').replace('\\', '')
+
+    # 4. Escape raw XML entities (&, <, >) for safe ReportLab text rendering
     clean_text = escape(text)
 
     try:
         return Paragraph(clean_text, style)
     except Exception:
-        return Paragraph(re.sub(r'[&<>]', '', clean_text), style)
+        # Emergency fallback to plain text if ReportLab still rejects string
+        fallback_text = re.sub(r'[&<>]', '', clean_text)
+        return Paragraph(fallback_text, style)
 
 
 def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
@@ -178,7 +187,7 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
         
         rows = []
         for tbl_line in table_buffer:
-            # FIXED: Syntax error resolved by properly escaping pipe delimiter without unclosed parenthesis
+            # FIXED: Escaped pipe delimiter correctly without unclosed parenthesis
             if re.match(r'^\s*\|?\s*:?-+:?\s*\|', tbl_line):
                 continue
             cols = [c.strip() for c in tbl_line.strip('|').split('|')]
@@ -234,12 +243,15 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 2))
         elif line_str.startswith('- ') or line_str.startswith('* ') or line_str.startswith('> '):
             bullet_text = re.sub(r'^[-*>]\s*', '', line_str).strip()
+            # FIXED: All bullet lines routed through safe_paragraph instead of raw Paragraph
             story.append(safe_paragraph(f"• {bullet_text}", styles['Bullet']))
             story.append(Spacer(1, 2))
         elif re.match(r'^\d+\.\s', line_str):
+            # FIXED: Numbered lines routed through safe_paragraph
             story.append(safe_paragraph(line_str, styles['Numbered']))
             story.append(Spacer(1, 2))
         else:
+            # FIXED: Body lines routed through safe_paragraph
             story.append(safe_paragraph(line_str, styles['Body']))
             story.append(Spacer(1, 3))
 
