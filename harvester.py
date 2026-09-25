@@ -30,12 +30,7 @@ SECONDARY_NIM_MODEL = os.getenv("SECONDARY_NIM_MODEL", "meta/llama-3.3-70b-instr
 
 ONNX_MODEL_PATH = "ddpg_sentinel_policy.onnx"
 
-COMPANY_DETAILS = """
-<b>Celsius Tech Media Group</b><br/>
-Email: info@celsiustechmediagroup.co.za<br/>
-Web: celsiustechmediagroup.co.za<br/>
-Engine: UESP / PRCE Resolution Protocol
-"""
+COMPANY_DETAILS = "Celsius Tech Media Group\nEmail: info@celsiustechmediagroup.co.za\nWeb: celsiustechmediagroup.co.za\nEngine: UESP / PRCE Resolution Protocol"
 
 SYSTEM_PROMPT = """
 [FMR SENTINEL MULTI-MODEL AGENT CORE]
@@ -44,37 +39,32 @@ Resolve the provided user issue into a comprehensive, highly technical Diagnosti
 
 CRITICAL FORMATTING INSTRUCTIONS:
 - Structure output using clean Markdown headers (#, ##, ###).
-- Use standard text for equations (avoid LaTeX symbols like $ or \\).
-- DO NOT use raw HTML line breaks like <br/>.
-- Complete all sections fully. Do not leave trailing thoughts or ellipses (...).
+- Use standard plain-text for math and equations (avoid LaTeX symbols like $ or \\ and avoid raw HTML tags).
+- Complete all sections fully.
 """
 
 def safe_paragraph(text: str, style) -> Paragraph:
     """
-    Safely creates a ReportLab Paragraph by sanitizing reserved characters,
-    formatting code/bold spans, and gracefully falling back to plain text if XML parsing fails.
+    Completely sanitizes incoming text by stripping all inline HTML/XML tags
+    to guarantee zero ReportLab parser exceptions.
     """
-    # 1. Strip raw HTML tags except standard break constructs
-    text = re.sub(r'</?(?:link|div|span|p|a|table|tr|td|th|tbody|thead|code|pre|img|para|i|b|font)[^>]*>', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'<br\s*/?>', ' ', text, flags=re.IGNORECASE)
+    # 1. Unescape existing HTML entities
+    text = html.unescape(text)
 
-    # 2. Strip LaTeX math symbols ($ and \)
+    # 2. Strip all inline tags completely (e.g. <i>, <b>, <font>, <para>, etc.)
+    text = re.sub(r'<[^>]+>', '', text)
+
+    # 3. Clean Markdown math/formatting symbols that break downstream processing
     text = text.replace('$', '').replace('\\', '')
 
-    # 3. Clean entities and escape raw XML special characters (&, <, >)
-    text = html.unescape(text)
-    text = escape(text)
+    # 4. Escape raw XML characters for safe ReportLab rendering
+    clean_text = escape(text)
 
-    # 4. Safely apply non-colliding inline formatting (bold and monospace code)
-    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
-    text = re.sub(r'`(.*?)`', r'<font face="Courier">\1</font>', text)
-
-    # 5. Attempt rendering; strip all residual markup if ReportLab fails
     try:
-        return Paragraph(text, style)
-    except Exception:
-        clean_text = re.sub(r'<[^>]+>', '', text)
         return Paragraph(clean_text, style)
+    except Exception:
+        # Ultimate fallback to plain text stripping any failed entities
+        return Paragraph(re.sub(r'[&<>]', '', clean_text), style)
 
 
 def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
@@ -83,12 +73,12 @@ def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
     if not os.path.exists(ONNX_MODEL_PATH):
         return (
             f"# UESP Quantum Engine Diagnostic Report (Local Baseline)\n\n"
-            f"**Status:** Completed via Rule-Based Telemetry (ONNX artifact missing).\n"
-            f"**Input Context:** {prompt_text}\n\n"
+            f"Status: Completed via Rule-Based Telemetry (ONNX artifact missing).\n"
+            f"Input Context: {prompt_text}\n\n"
             f"### Automated System Telemetry\n"
-            f"- **Quantum Dilation:** 1:6000 Ratio Applied\n"
-            f"- **SIMD Vector Engine:** AVX2 Hardware Accelerated\n"
-            f"- **Policy Optimization:** DDPG ONNX Fallback Active"
+            f"- Quantum Dilation: 1:6000 Ratio Applied\n"
+            f"- SIMD Vector Engine: AVX2 Hardware Accelerated\n"
+            f"- Policy Optimization: DDPG ONNX Fallback Active"
         )
     
     try:
@@ -103,21 +93,21 @@ def run_aetheric_archon_onnx_synthesis(prompt_text: str) -> str:
         
         return (
             f"# UESP Quantum Engine Diagnostic Report\n\n"
-            f"**Status:** Execution completed via Local Aetheric Archon Otsutsuki ONNX Neural Engine.\n"
-            f"**Input Context:** {prompt_text}\n\n"
+            f"Status: Execution completed via Local Aetheric Archon Otsutsuki ONNX Neural Engine.\n"
+            f"Input Context: {prompt_text}\n\n"
             f"### Automated System Telemetry & Aetheric Policy State\n"
-            f"- **Quantum Dilation:** 1:6000 Ratio Applied\n"
-            f"- **SIMD Vector Engine:** AVX2 Hardware Accelerated\n"
-            f"- **Policy Optimization:** DDPG ONNX Checkpoint Validated\n"
-            f"- **Aetheric Archon Tactical Action Tensor:** `{np.round(action_output[0], 4).tolist()}`\n\n"
+            f"- Quantum Dilation: 1:6000 Ratio Applied\n"
+            f"- SIMD Vector Engine: AVX2 Hardware Accelerated\n"
+            f"- Policy Optimization: DDPG ONNX Checkpoint Validated\n"
+            f"- Aetheric Archon Tactical Action Tensor: {np.round(action_output[0], 4).tolist()}\n\n"
             f"### Synthesized Resolution Strategy\n"
-            f"1. **Dimensional Energy Balancing:** Active Inference free-energy loss minimized across temporal quantum state vectors.\n"
-            f"2. **Sub-atomic Nanite Calibration:** Kinematic cap activation applied to prevent metabolic dissipation.\n"
-            f"3. **Local Telemetry Fallback:** Neural graph executed autonomously on-device without cloud external dependency."
+            f"1. Dimensional Energy Balancing: Active Inference free-energy loss minimized across temporal quantum state vectors.\n"
+            f"2. Sub-atomic Nanite Calibration: Kinematic cap activation applied to prevent metabolic dissipation.\n"
+            f"3. Local Telemetry Fallback: Neural graph executed autonomously on-device without cloud external dependency."
         )
     except Exception as e:
         print(f"[ERROR] Aetheric Archon ONNX Model Execution Failed: {e}")
-        return f"# Diagnostic Report (Local System Fallback)\n\n**Payload:** {prompt_text}\n\n*Error running local ONNX model: {e}*"
+        return f"# Diagnostic Report (Local System Fallback)\n\nPayload: {prompt_text}\n\nError running local ONNX model: {e}"
 
 
 def query_nvidia_nim(prompt_text: str) -> str:
@@ -196,7 +186,6 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
         
         rows = []
         for tbl_line in table_buffer:
-            # FIXED: Corrected invalid regex syntax
             if re.match(r'^\s*\|?\s*:?-+:?\s*\|', tbl_line):
                 continue
             cols = [c.strip() for c in tbl_line.strip('|').split('|')]
@@ -287,7 +276,7 @@ def generate_pdf_artifact(filename, title, content, session_id):
         with open("logo.webp", "wb") as f: f.write(r.content)
         logo_img = Image("logo.webp", width=1.8 * inch, height=0.6 * inch)
     except Exception:
-        logo_img = safe_paragraph("<b>CELSIUS TECH MEDIA GROUP</b>", custom_styles['DocTitle'])
+        logo_img = safe_paragraph("CELSIUS TECH MEDIA GROUP", custom_styles['DocTitle'])
 
     header_table = Table([[logo_img, safe_paragraph(COMPANY_DETAILS, custom_styles['DocBody'])]], colWidths=[3.5 * inch, 3.5 * inch])
     header_table.setStyle(TableStyle([('ALIGN', (1,0), (1,0), 'RIGHT'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
@@ -339,8 +328,8 @@ def process_and_run(title, issue_text):
     if m_res.status_code == 201:
         pdf_url = m_res.json().get('source_url')
         wp_body = (
-            f"{report_text}<br/><br/>"
-            f"<b>ECTA Audit Token:</b> <code>{session_id}</code><br/>"
+            f"{report_text}\n\n"
+            f"ECTA Audit Token: {session_id}\n"
             f"<a href='{pdf_url}' target='_blank'>📥 Download Full PDF Artifact</a>"
         )
         requests.post(
