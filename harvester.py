@@ -2,6 +2,7 @@ import os
 import time
 import re
 import html
+import io
 from html.parser import HTMLParser
 from xml.sax.saxutils import escape
 import requests
@@ -9,6 +10,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 import onnxruntime as ort
 import numpy as np
+from PIL import Image as PILImage
 import uesp_quantum_core  # Compiled Rust Module
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -320,12 +322,30 @@ def generate_pdf_artifact(filename, title, content, session_id):
 
     story = []
 
+    # --- Robust Logo Fetching & WebP-to-PNG Auto-Conversion ---
+    logo_img = None
     try:
-        r = requests.get(LOGO_URL, timeout=10)
-        with open("logo.webp", "wb") as f: f.write(r.content)
-        logo_img = Image("logo.webp", width=1.8 * inch, height=0.6 * inch)
-    except Exception:
-        logo_img = safe_paragraph("CELSIUS TECH MEDIA GROUP", custom_styles['DocTitle'])
+        # User-Agent prevents WP/Cloudflare 403 blocks returning HTML instead of the image
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        r = requests.get(LOGO_URL, headers=headers, timeout=10)
+        
+        if r.status_code == 200 and len(r.content) > 0:
+            # Convert WebP -> PNG in-memory so ReportLab always gets a native Pillow image
+            pil_img = PILImage.open(io.BytesIO(r.content))
+            png_buffer = io.BytesIO()
+            pil_img.save(png_buffer, format='PNG')
+            png_buffer.seek(0)
+
+            # Pass converted buffer to ReportLab Image
+            logo_img = Image(png_buffer, width=1.8 * inch, height=0.6 * inch)
+        else:
+            print(f"[WARN] Logo download returned HTTP {r.status_code}. Using text fallback.")
+    except Exception as e:
+        print(f"[WARN] Logo processing failed: {e}. Falling back to text header.")
+
+    if not logo_img:
+        logo_img = safe_paragraph("<b>CELSIUS TECH MEDIA GROUP</b>", custom_styles['DocTitle'])
+    # -----------------------------------------------------------
 
     header_table = Table([[logo_img, safe_paragraph(COMPANY_DETAILS, custom_styles['DocBody'])]], colWidths=[3.5 * inch, 3.5 * inch])
     header_table.setStyle(TableStyle([('ALIGN', (1,0), (1,0), 'RIGHT'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
