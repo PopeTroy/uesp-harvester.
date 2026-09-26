@@ -67,15 +67,19 @@ def sanitize_reportlab_text(text: str) -> str:
     """
     Sanitizes LLM markdown output for ReportLab:
     1. Unescapes existing HTML entities.
-    2. Strips raw inline HTML/XML tags (<font>, <i>, <b>, etc.) to prevent tag-interleaving stack crashes.
+    2. Repeatedly strips raw inline HTML/XML tags (<font>, <i>, <b>, etc.) 
+       to handle nested/malformed structures and prevent stack crashes.
     3. Converts Markdown bold/italics (** / *) to properly nested ReportLab tags.
     4. Escapes literal &, <, > characters while preserving valid ReportLab tags.
     """
     # 1. Unescape HTML entities
     text = html.unescape(text)
 
-    # 2. Strip all raw HTML/XML tags to eliminate interleaved tag issues (e.g. <font><i></font></i>)
-    text = re.sub(r'<[^>]+>', '', text)
+    # 2. Iteratively strip raw HTML/XML tags to completely eliminate nested/malformed tags
+    prev_text = None
+    while prev_text != text:
+        prev_text = text
+        text = re.sub(r'<[^>]+>', '', text)
 
     # 3. Clean LaTeX math delimiters
     text = text.replace('$', '').replace('\\', '')
@@ -287,7 +291,6 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 2))
         elif line_str.startswith('- ') or line_str.startswith('* ') or line_str.startswith('> '):
             bullet_text = re.sub(r'^[-*>]\s*', '', line_str).strip()
-            # FIX: Wrapped with safe_paragraph instead of raw Paragraph instantiation
             story.append(safe_paragraph(f"• {bullet_text}", styles['Bullet']))
             story.append(Spacer(1, 2))
         elif re.match(r'^\d+\.\s', line_str):
