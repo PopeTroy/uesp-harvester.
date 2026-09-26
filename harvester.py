@@ -65,25 +65,38 @@ class EphemeralSentinelParser(HTMLParser):
 
 def sanitize_reportlab_text(text: str) -> str:
     """
-    Sanitizes string streams through an ephemeral parser instance to remove
-    malformed HTML/XML tags and properly escape entity markers.
+    Sanitizes LLM markdown output for ReportLab:
+    1. Unescapes existing HTML entities.
+    2. Strips raw inline HTML/XML tags (<font>, <i>, <b>, etc.) to prevent tag-interleaving stack crashes.
+    3. Converts Markdown bold/italics (** / *) to properly nested ReportLab tags.
+    4. Escapes literal &, <, > characters while preserving valid ReportLab tags.
     """
-    # 1. Decode entities
+    # 1. Unescape HTML entities
     text = html.unescape(text)
 
-    # 2. Ephemeral Sentinel Instance execution to strip HTML tags completely
-    parser = EphemeralSentinelParser()
-    try:
-        parser.feed(text)
-        clean_text = parser.get_clean_text()
-    except Exception:
-        clean_text = re.sub(r'<[^>]+>', '', text)
+    # 2. Strip all raw HTML/XML tags to eliminate interleaved tag issues (e.g. <font><i></font></i>)
+    text = re.sub(r'<[^>]+>', '', text)
 
-    # 3. Clean remaining LaTeX/math control symbols
-    clean_text = clean_text.replace('$', '').replace('\\', '')
+    # 3. Clean LaTeX math delimiters
+    text = text.replace('$', '').replace('\\', '')
 
-    # 4. XML escape reserved characters for safe ReportLab text node creation
-    return escape(clean_text)
+    # 4. Convert Markdown formatting to temporary tokens to avoid XML escaping them
+    # Bold + Italic (***text*** or ___text___)
+    text = re.sub(r'(\*\*\*|___)(.*?)\1', r'___BOLDITALIC___\2___ENDBOLDITALIC___', text)
+    # Bold (**text** or __text__)
+    text = re.sub(r'(\*\*|__)(.*?)\1', r'___BOLD___\2___ENDBOLD___', text)
+    # Italic (*text* or _text_)
+    text = re.sub(r'(\*|_)(.*?)\1', r'___ITALIC___\2___ENDITALIC___', text)
+
+    # 5. Escape raw XML reserved characters (&, <, >)
+    text = escape(text)
+
+    # 6. Restore clean, properly nested ReportLab tags
+    text = text.replace('___BOLDITALIC___', '<b><i>').replace('___ENDBOLDITALIC___', '</i></b>')
+    text = text.replace('___BOLD___', '<b>').replace('___ENDBOLD___', '</b>')
+    text = text.replace('___ITALIC___', '<i>').replace('___ENDITALIC___', '</i>')
+
+    return text
 
 
 def safe_paragraph(text: str, style) -> Paragraph:
@@ -274,6 +287,7 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 2))
         elif line_str.startswith('- ') or line_str.startswith('* ') or line_str.startswith('> '):
             bullet_text = re.sub(r'^[-*>]\s*', '', line_str).strip()
+            # FIX: Wrapped with safe_paragraph instead of raw Paragraph instantiation
             story.append(safe_paragraph(f"• {bullet_text}", styles['Bullet']))
             story.append(Spacer(1, 2))
         elif re.match(r'^\d+\.\s', line_str):
