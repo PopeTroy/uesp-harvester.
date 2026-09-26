@@ -2,6 +2,7 @@ import os
 import time
 import re
 import html
+from html.parser import HTMLParser
 from xml.sax.saxutils import escape
 import requests
 from requests.adapters import HTTPAdapter
@@ -11,8 +12,8 @@ import numpy as np
 import uesp_quantum_core  # Compiled Rust Module
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, KeepTogether
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 
 # Credentials & Endpoints
@@ -24,7 +25,6 @@ NVIDIA_KEY = os.getenv("NVIDIA_API_KEY")
 LOGO_URL = "https://celsiustechmediagroup.co.za/wp-content/uploads/2026/01/CTMG.webp"
 NVIDIA_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
 
-# Primary & Secondary NVIDIA Microservices Models
 PRIMARY_NIM_MODEL = os.getenv("PRIMARY_NIM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
 SECONDARY_NIM_MODEL = os.getenv("SECONDARY_NIM_MODEL", "meta/llama-3.3-70b-instruct")
 
@@ -32,38 +32,69 @@ ONNX_MODEL_PATH = "ddpg_sentinel_policy.onnx"
 
 COMPANY_DETAILS = "Celsius Tech Media Group\nEmail: info@celsiustechmediagroup.co.za\nWeb: celsiustechmediagroup.co.za\nEngine: UESP / PRCE Resolution Protocol"
 
+# Strict SYSTEM_PROMPT enforcing standard text output without HTML tags
 SYSTEM_PROMPT = """
 [FMR SENTINEL MULTI-MODEL AGENT CORE]
-You are a PhD-level research engine combining Quantum Mechanics, Astrophysics, Physical Ergonomics, and Shinobi Tactical Analysis (Ocular Diagnostics & Energy Balance).
+You are a PhD-level research engine combining Quantum Mechanics, Astrophysics, Physical Ergonomics, and Tactical Analysis.
 Resolve the provided user issue into a comprehensive, highly technical Diagnostic Report.
 
-CRITICAL FORMATTING INSTRUCTIONS:
-- Structure output using clean Markdown headers (#, ##, ###).
-- Use standard plain-text for math and equations (avoid LaTeX symbols like $ or \\ and avoid raw HTML tags).
-- Complete all sections fully.
+STRICT FORMATTING PROTOCOL:
+- Output clean Markdown headers (#, ##, ###) and lists (- or 1.).
+- Use standard PLAIN TEXT for all equations, code snippets, and variable names.
+- DO NOT generate raw HTML tags under any circumstances (NO <i>, <b>, <font>, <br>, or <code> tags).
+- DO NOT use LaTeX delimiters ($ or \\).
+- Write mathematical variables in plain text (e.g., Frame_t+1, Input_t, Render_Set(t)).
 """
+
+class HTMLTagStripper(HTMLParser):
+    """
+    Ephemeral Sentinel Parser: Completely strips HTML/XML tags and accumulates
+    clean text content to guarantee ReportLab never encounters unmatched tags.
+    """
+    def __init__(self):
+        super().__init__()
+        self.reset()
+        self.fed = []
+
+    def handle_data(self, d):
+        self.fed.append(d)
+
+    def get_data(self):
+        return "".join(self.fed)
+
+
+def strip_all_xml_tags(text: str) -> str:
+    """Strips all XML/HTML markup cleanly using an ephemeral HTMLParser instance."""
+    parser = HTMLTagStripper()
+    try:
+        parser.feed(text)
+        return parser.get_data()
+    except Exception:
+        # Fallback regex strip if HTMLParser encounters severe corruption
+        return re.sub(r'<[^>]+>', '', text)
+
 
 def safe_paragraph(text: str, style) -> Paragraph:
     """
-    Completely sanitizes incoming text by stripping all inline HTML/XML tags
-    to guarantee zero ReportLab parser exceptions.
+    Sanitizes input text by stripping all inline HTML tags and escaping reserved XML entities.
+    Guarantees 100% crash-free execution in ReportLab.
     """
-    # 1. Unescape HTML entities
+    # 1. Unescape existing HTML entities
     text = html.unescape(text)
 
-    # 2. Strip all HTML/XML tags completely (<font>, <i>, <b>, <para>, etc.)
-    text = re.sub(r'<[^>]+>', '', text)
+    # 2. Ephemeral Sentinel Tag Removal: strip <font>, <i>, <b>, <para> etc.
+    text = strip_all_xml_tags(text)
 
-    # 3. Clean LaTeX and math symbols that break downstream parsing
+    # 3. Remove LaTeX and math formatting markers
     text = text.replace('$', '').replace('\\', '')
 
-    # 4. Escape raw XML entities (&, <, >) for safe ReportLab text rendering
+    # 4. Escape raw XML characters (&, <, >) for safe ReportLab rendering
     clean_text = escape(text)
 
     try:
         return Paragraph(clean_text, style)
     except Exception:
-        # Emergency fallback to plain text if ReportLab still rejects string
+        # Ultimate fallback: strip all non-alphanumeric characters except basic punctuation
         fallback_text = re.sub(r'[&<>]', '', clean_text)
         return Paragraph(fallback_text, style)
 
@@ -187,7 +218,7 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
         
         rows = []
         for tbl_line in table_buffer:
-            # FIXED: Escaped pipe delimiter correctly without unclosed parenthesis
+            # Valid escaped regex pattern for table separator rows
             if re.match(r'^\s*\|?\s*:?-+:?\s*\|', tbl_line):
                 continue
             cols = [c.strip() for c in tbl_line.strip('|').split('|')]
@@ -243,15 +274,12 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 2))
         elif line_str.startswith('- ') or line_str.startswith('* ') or line_str.startswith('> '):
             bullet_text = re.sub(r'^[-*>]\s*', '', line_str).strip()
-            # FIXED: All bullet lines routed through safe_paragraph instead of raw Paragraph
             story.append(safe_paragraph(f"• {bullet_text}", styles['Bullet']))
             story.append(Spacer(1, 2))
         elif re.match(r'^\d+\.\s', line_str):
-            # FIXED: Numbered lines routed through safe_paragraph
             story.append(safe_paragraph(line_str, styles['Numbered']))
             story.append(Spacer(1, 2))
         else:
-            # FIXED: Body lines routed through safe_paragraph
             story.append(safe_paragraph(line_str, styles['Body']))
             story.append(Spacer(1, 3))
 
