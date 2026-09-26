@@ -32,70 +32,71 @@ ONNX_MODEL_PATH = "ddpg_sentinel_policy.onnx"
 
 COMPANY_DETAILS = "Celsius Tech Media Group\nEmail: info@celsiustechmediagroup.co.za\nWeb: celsiustechmediagroup.co.za\nEngine: UESP / PRCE Resolution Protocol"
 
-# Strict SYSTEM_PROMPT enforcing standard text output without HTML tags
+# Enforce strict plain text formatting instructions to prevent inline tag mismatches
 SYSTEM_PROMPT = """
 [FMR SENTINEL MULTI-MODEL AGENT CORE]
 You are a PhD-level research engine combining Quantum Mechanics, Astrophysics, Physical Ergonomics, and Tactical Analysis.
 Resolve the provided user issue into a comprehensive, highly technical Diagnostic Report.
 
 STRICT FORMATTING PROTOCOL:
-- Output clean Markdown headers (#, ##, ###) and lists (- or 1.).
+- Structure output using clean Markdown headers (#, ##, ###) and standard lists (- or 1.).
 - Use standard PLAIN TEXT for all equations, code snippets, and variable names.
-- DO NOT generate raw HTML tags under any circumstances (NO <i>, <b>, <font>, <br>, or <code> tags).
+- DO NOT output raw HTML tags (NO <i>, <b>, <font>, <para>, or <code> tags).
 - DO NOT use LaTeX delimiters ($ or \\).
-- Write mathematical variables in plain text (e.g., Frame_t+1, Input_t, Render_Set(t)).
+- Represent mathematical and systemic variables in standard text (e.g., Frame_t+1, Input_t, Render_Set(t)).
 """
 
-class HTMLTagStripper(HTMLParser):
+class EphemeralSentinelParser(HTMLParser):
     """
-    Ephemeral Sentinel Parser: Completely strips HTML/XML tags and accumulates
-    clean text content to guarantee ReportLab never encounters unmatched tags.
+    Ephemeral Sentinel Instance: Parses and extracts pure text nodes,
+    stripping all inline HTML/XML tags to guarantee ReportLab tag stack stability.
     """
     def __init__(self):
         super().__init__()
         self.reset()
-        self.fed = []
+        self.text_chunks = []
 
-    def handle_data(self, d):
-        self.fed.append(d)
+    def handle_data(self, data):
+        self.text_chunks.append(data)
 
-    def get_data(self):
-        return "".join(self.fed)
+    def get_clean_text(self):
+        return "".join(self.text_chunks)
 
 
-def strip_all_xml_tags(text: str) -> str:
-    """Strips all XML/HTML markup cleanly using an ephemeral HTMLParser instance."""
-    parser = HTMLTagStripper()
+def sanitize_reportlab_text(text: str) -> str:
+    """
+    Sanitizes string streams through an ephemeral parser instance to remove
+    malformed HTML/XML tags and properly escape entity markers.
+    """
+    # 1. Decode entities
+    text = html.unescape(text)
+
+    # 2. Ephemeral Sentinel Instance execution to strip HTML tags completely
+    parser = EphemeralSentinelParser()
     try:
         parser.feed(text)
-        return parser.get_data()
+        clean_text = parser.get_clean_text()
     except Exception:
-        # Fallback regex strip if HTMLParser encounters severe corruption
-        return re.sub(r'<[^>]+>', '', text)
+        clean_text = re.sub(r'<[^>]+>', '', text)
+
+    # 3. Clean remaining LaTeX/math control symbols
+    clean_text = clean_text.replace('$', '').replace('\\', '')
+
+    # 4. XML escape reserved characters for safe ReportLab text node creation
+    return escape(clean_text)
 
 
 def safe_paragraph(text: str, style) -> Paragraph:
     """
-    Sanitizes input text by stripping all inline HTML tags and escaping reserved XML entities.
-    Guarantees 100% crash-free execution in ReportLab.
+    Constructs a ReportLab Paragraph object after passing text through
+    the Sentinel Sanitizer pipeline. Includes emergency fallback.
     """
-    # 1. Unescape existing HTML entities
-    text = html.unescape(text)
-
-    # 2. Ephemeral Sentinel Tag Removal: strip <font>, <i>, <b>, <para> etc.
-    text = strip_all_xml_tags(text)
-
-    # 3. Remove LaTeX and math formatting markers
-    text = text.replace('$', '').replace('\\', '')
-
-    # 4. Escape raw XML characters (&, <, >) for safe ReportLab rendering
-    clean_text = escape(text)
-
+    sanitized_text = sanitize_reportlab_text(text)
     try:
-        return Paragraph(clean_text, style)
+        return Paragraph(sanitized_text, style)
     except Exception:
-        # Ultimate fallback: strip all non-alphanumeric characters except basic punctuation
-        fallback_text = re.sub(r'[&<>]', '', clean_text)
+        # Emergency fallback: strip XML tokens completely
+        fallback_text = re.sub(r'[&<>]', '', sanitized_text)
         return Paragraph(fallback_text, style)
 
 
@@ -218,7 +219,6 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
         
         rows = []
         for tbl_line in table_buffer:
-            # Valid escaped regex pattern for table separator rows
             if re.match(r'^\s*\|?\s*:?-+:?\s*\|', tbl_line):
                 continue
             cols = [c.strip() for c in tbl_line.strip('|').split('|')]
