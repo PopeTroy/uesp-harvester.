@@ -65,40 +65,39 @@ class EphemeralSentinelParser(HTMLParser):
 
 def sanitize_reportlab_text(text: str) -> str:
     """
-    Sanitizes LLM markdown output for ReportLab:
-    1. Unescapes existing HTML entities.
-    2. Repeatedly strips raw inline HTML/XML tags (<font>, <i>, <b>, etc.) 
-       to handle nested/malformed structures and prevent stack crashes.
-    3. Converts Markdown bold/italics (** / *) to properly nested ReportLab tags.
-    4. Escapes literal &, <, > characters while preserving valid ReportLab tags.
+    Sanitizes LLM markdown output into valid XML/HTML for ReportLab Paragraphs.
+    Handles unescaped entities, strips dangerous/overlapping tags (<font>, <code>, <para>),
+    safely escapes raw XML operators (&, <, >), and applies standard bold/italic markup.
     """
-    # 1. Unescape HTML entities
+    # 1. Unescape existing HTML entities
     text = html.unescape(text)
 
-    # 2. Iteratively strip raw HTML/XML tags to completely eliminate nested/malformed tags
-    prev_text = None
-    while prev_text != text:
-        prev_text = text
-        text = re.sub(r'<[^>]+>', '', text)
+    # 2. Strip raw/overlapping <font>, <code>, <para>, or malformed inline HTML tags
+    # Example target: '<font face="Courier">Posture<i>Deviation &gt; Threshold</font>'
+    text = re.sub(r'</?(para|font|code)[^>]*>', '', text, flags=re.IGNORECASE)
 
-    # 3. Clean LaTeX math delimiters
-    text = text.replace('$', '').replace('\\', '')
+    # 3. Temporarily extract Markdown bold and italic placeholders
+    bold_tokens = []
+    def save_bold(match):
+        bold_tokens.append(match.group(1))
+        return f"__RL_BOLD_{len(bold_tokens) - 1}__"
 
-    # 4. Convert Markdown formatting to temporary tokens to avoid XML escaping them
-    # Bold + Italic (***text*** or ___text___)
-    text = re.sub(r'(\*\*\*|___)(.*?)\1', r'___BOLDITALIC___\2___ENDBOLDITALIC___', text)
-    # Bold (**text** or __text__)
-    text = re.sub(r'(\*\*|__)(.*?)\1', r'___BOLD___\2___ENDBOLD___', text)
-    # Italic (*text* or _text_)
-    text = re.sub(r'(\*|_)(.*?)\1', r'___ITALIC___\2___ENDITALIC___', text)
+    italic_tokens = []
+    def save_italic(match):
+        italic_tokens.append(match.group(1))
+        return f"__RL_ITALIC_{len(italic_tokens) - 1}__"
 
-    # 5. Escape raw XML reserved characters (&, <, >)
+    text = re.sub(r'\*\*(.*?)\*\*', save_bold, text)
+    text = re.sub(r'\*(.*?)\*', save_italic, text)
+
+    # 4. Escape raw XML special characters (&, <, >) so code/equations don't break ReportLab
     text = escape(text)
 
-    # 6. Restore clean, properly nested ReportLab tags
-    text = text.replace('___BOLDITALIC___', '<b><i>').replace('___ENDBOLDITALIC___', '</i></b>')
-    text = text.replace('___BOLD___', '<b>').replace('___ENDBOLD___', '</b>')
-    text = text.replace('___ITALIC___', '<i>').replace('___ENDITALIC___', '</i>')
+    # 5. Re-inject safe ReportLab bold/italic tags
+    for i, b_text in enumerate(bold_tokens):
+        text = text.replace(f"__RL_BOLD_{i}__", f"<b>{escape(b_text)}</b>")
+    for i, i_text in enumerate(italic_tokens):
+        text = text.replace(f"__RL_ITALIC_{i}__", f"<i>{escape(i_text)}</i>")
 
     return text
 
