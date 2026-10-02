@@ -4,16 +4,18 @@ import re
 import html
 import io
 import requests
+import numpy as np
+import chromadb  # Persistent Vector Store
+import onnxruntime as ort
+import torch
+
 from html.parser import HTMLParser
 from xml.sax.saxutils import escape
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
-import onnxruntime as ort
-import numpy as np
 from PIL import Image as PILImage
 
 # Local Storage Engine (ARM / Native CPU Trapping)
-import chromadb
 from onnxruntime.quantization import quantize_dynamic, QuantType
 
 # Compiled Rust Module
@@ -451,11 +453,8 @@ def process_and_run(title: str, issue_text: str):
                     print(f"❌ WordPress upload status {response.status_code}: {response.text}")
         except Exception as e:
             print(f"❌ Error uploading to WordPress: {e}")
-    else:
-        print("ℹ️ WordPress authentication omitted. Saved report artifact locally.")
 
 if __name__ == "__main__":
-    process_and_run(
-        title="ARM ONNX Vector Distillation Diagnostic",
-        issue_text="Verify local memory persistence and dynamic NIM model routing."
-    )
+    injected_title = os.getenv("INJECTED_TITLE", "Quantum Dilation & Ergonomic Audit")
+    injected_detail = os.getenv("INJECTED_DETAIL", "AVX2 SIMD and DDPG Policy Verification under 1:6000 quantum dilation.")
+    process_and_run(injected_title, injected_detail)
