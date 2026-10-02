@@ -1,3 +1,4 @@
+chromadb
 requests>=2.31.0
 reportlab>=4.0.0
 torch>=2.1.0
@@ -7,4 +8,3 @@ numpy>=1.24.0
 maturin>=1.4.0
 onnx>=1.14.0
 onnxscrip
-chromadb
