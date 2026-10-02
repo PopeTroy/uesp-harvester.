@@ -1,6 +1,7 @@
 import os
 import shutil
 import time
+import json
 import numpy as np
 
 # ==========================================
@@ -90,88 +91,171 @@ class LocalDIPCore:
 
 
 # ==========================================
-# 3. PID CONTROLLER CORE
+# 3. TEACHER-STUDENT DISTILLATION MODULE
+# ==========================================
+class TeacherStudentDistillation:
+    """Distill heavy teacher target outputs into a lightweight local student model."""
+
+    def __init__(self, storage_path, temperature=2.0):
+        self.storage_path = storage_path
+        self.temperature = temperature
+        self.fs = LocalFileSystem()
+        # Initialize small local weights (student linear model)
+        self.student_weights = np.array([0.5, 0.1], dtype=np.float32)
+
+    def teacher_policy(self, current_speed, target_speed):
+        """Simulates a complex, heavy teacher network recommending target velocity adjustments."""
+        error = target_speed - current_speed
+        # Non-linear teacher evaluation (e.g. high-capacity model prediction)
+        suggested_adjustment = np.tanh(error / self.temperature) * 15.0
+        return float(suggested_adjustment)
+
+    def predict_student(self, current_speed, target_speed):
+        """Lightweight student model forward pass."""
+        inputs = np.array([target_speed - current_speed, current_speed / 100.0], dtype=np.float32)
+        return float(np.dot(self.student_weights, inputs))
+
+    def train_step(self, current_speed, target_speed, lr=0.01):
+        """Knowledge distillation: Student updates its parameters toward Teacher output."""
+        teacher_out = self.teacher_policy(current_speed, target_speed)
+        student_out = self.predict_student(current_speed, target_speed)
+        
+        # Mean Squared Error distillation loss gradient
+        loss = (student_out - teacher_out) ** 2
+        grad = 2.0 * (student_out - teacher_out)
+        
+        inputs = np.array([target_speed - current_speed, current_speed / 100.0], dtype=np.float32)
+        self.student_weights -= lr * grad * inputs
+        
+        return teacher_out, student_out, loss
+
+    def save_distillation_state(self, step, teacher_out, student_out, loss):
+        """Persists the distilled state and weights to disk."""
+        data = {
+            "step": step,
+            "timestamp": time.time(),
+            "student_weights": self.student_weights.tolist(),
+            "teacher_output": teacher_out,
+            "student_output": student_out,
+            "distillation_loss": loss
+        }
+        self.fs.write(self.storage_path, json.dumps(data, indent=2))
+
+
+# ==========================================
+# 4. PID CONTROLLER CORE (CRUISE CONTROL)
 # ==========================================
 class PIDController:
-    """Discrete Proportional-Integral-Derivative controller."""
+    """Discrete Proportional-Integral-Derivative controller for smooth trajectory execution."""
 
-    def __init__(self, Kp=1.5, Ki=0.2, Kd=0.05):
+    def __init__(self, Kp=0.8, Ki=0.15, Kd=0.05, max_accel=10.0):
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
+        self.max_accel = max_accel
         self.integral = 0.0
         self.prev_error = 0.0
 
     def compute(self, setpoint, measured_value, dt=0.1):
         error = setpoint - measured_value
         self.integral += error * dt
+        # Prevent integral windup
+        self.integral = np.clip(self.integral, -20.0, 20.0)
+        
         derivative = (error - self.prev_error) / dt if dt > 0 else 0.0
         output = (self.Kp * error) + (self.Ki * self.integral) + (self.Kd * derivative)
+        
+        # Smooth cruise control bounds (limits abrupt spikes)
+        output = np.clip(output, -self.max_accel, self.max_accel)
         self.prev_error = error
-        return output
+        return float(output)
 
 
 # ==========================================
-# 4. ML ONLINE ADAPTATION CORE
+# 5. ML ONLINE ADAPTATION CORE
 # ==========================================
 class LocalMLAdapter:
     """Simple stochastic gradient update model to auto-tune PID gains."""
 
-    def __init__(self, lr=0.01):
+    def __init__(self, lr=0.001):
         self.lr = lr
 
-    def tune_pid(self, pid_instance, performance_error):
+    def tune_pid(self, pid_instance, tracking_error):
         # Dynamically adjust proportional gain based on systemic error rate
-        pid_instance.Kp += self.lr * performance_error
+        pid_instance.Kp += self.lr * abs(tracking_error)
+        pid_instance.Kp = np.clip(pid_instance.Kp, 0.1, 3.0)
 
 
 # ==========================================
-# 5. INTEGRATED EXECUTION PIPELINE
+# 6. INTEGRATED EXECUTION PIPELINE
 # ==========================================
 if __name__ == "__main__":
-    # Define local documents directory path
     DOCS_DIR = os.path.join(os.path.expanduser("~"), "Documents", "UESP_Local_Engine")
     
     fs = LocalFileSystem()
     dip = LocalDIPCore()
-    pid = PIDController(Kp=1.2, Ki=0.1, Kd=0.02)
-    ml = LocalMLAdapter(lr=0.005)
-
-    # 1. Directory Structure Operations
-    fs.mkdir(DOCS_DIR)
-    file_a = os.path.join(DOCS_DIR, "raw_sensor_log.txt")
-    fs.write(file_a, "SESSION_STATE: ACTIVE\nSAMPLE_RATE: 100Hz")
+    pid = PIDController(Kp=0.8, Ki=0.15, Kd=0.05, max_accel=12.0)
+    ml = LocalMLAdapter(lr=0.002)
     
-    print("\n--- File Stat Info ---")
-    print(fs.stat(file_a))
+    distill_db_path = os.path.join(DOCS_DIR, "distillation_memory.json")
+    distiller = TeacherStudentDistillation(storage_path=distill_db_path)
 
-    # 2. Copy/Paste Operations
-    backup_dir = os.path.join(DOCS_DIR, "Backups")
-    fs.paste(file_a, backup_dir)
+    # 1. Setup Local Storage
+    fs.mkdir(DOCS_DIR)
+    log_file = os.path.join(DOCS_DIR, "raw_sensor_log.txt")
+    fs.write(log_file, "CRUISE_CONTROL_STATE: ACTIVE\nENGINE: UESP_DISTILLED_PID\n")
 
-    # 3. DIP Matrix Processing
+    # 2. DIP Matrix Processing
     raw_synthetic_image = np.random.randint(50, 200, size=(64, 64), dtype=np.uint8)
     processed_image = dip.apply_contrast_stretching(raw_synthetic_image)
     edge_score = dip.compute_edge_density(processed_image)
-    print(f"\n📷 Processed Image Edge Density: {edge_score:.4f}")
+    print(f"\n📷 DIP Processed Edge Density: {edge_score:.4f}")
 
-    # 4. ML-Guided PID Loop Simulation
-    setpoint = 100.0
-    current_value = 20.0
+    # 3. Teacher-Student Distillation & Smooth PID Cruise Loop
+    target_speed = 120.0  # Cruise Setpoint (km/h)
+    current_speed = 40.0  # Starting Speed (km/h)
     
-    print("\n--- Running Local PID & ML Optimization Loop ---")
-    for step in range(5):
-        control_output = pid.compute(setpoint, current_value)
-        current_value += control_output * 0.2  # Simulate system response
-        error = setpoint - current_value
-        
-        # ML model adjusts PID gain based on tracking error
-        ml.tune_pid(pid, error)
-        
-        print(f"Step {step+1}: Measured={current_value:.2f} | Control Out={control_output:.2f} | Updated Kp={pid.Kp:.4f}")
+    print("\n--- Running Teacher-Student Distillation & PID Cruise Control ---")
+    history_logs = []
 
-    # Log results locally
-    results_path = os.path.join(DOCS_DIR, "execution_summary.txt")
-    fs.write(results_path, f"Final Value: {current_value}\nFinal Kp: {pid.Kp}\nEdge Density: {edge_score}")
+    for step in range(1, 11):
+        # A. Distill teacher knowledge to lightweight student model
+        teacher_adj, student_adj, dist_loss = distiller.train_step(current_speed, target_speed)
+        
+        # B. Combine cruise setpoint with distilled student output recommendations
+        effective_target = target_speed + student_adj
+        
+        # C. Pass effective target into PID Controller for smooth acceleration/braking
+        accel_command = pid.compute(effective_target, current_speed, dt=0.2)
+        
+        # Simulate physical vehicle response
+        current_speed += accel_command * 0.5
+        tracking_error = target_speed - current_speed
+        
+        # D. ML Auto-tuner adjusts PID parameters online
+        ml.tune_pid(pid, tracking_error)
+        
+        # E. Persist Distillation & Telemetry locally
+        distiller.save_distillation_state(step, teacher_adj, student_adj, dist_loss)
+        
+        log_entry = (
+            f"Step {step:02d} | Current Speed: {current_speed:6.2f} km/h | "
+            f"Teacher Out: {teacher_adj:6.2f} | Student Out: {student_adj:6.2f} | "
+            f"PID Accel Cmd: {accel_command:6.2f} | Loss: {dist_loss:.4f}"
+        )
+        print(log_entry)
+        history_logs.append(log_entry)
+
+    # Log summary locally
+    summary_path = os.path.join(DOCS_DIR, "execution_summary.txt")
+    summary_content = (
+        f"--- CRUISE CONTROL EXECUTION SUMMARY ---\n"
+        f"Final Speed: {current_speed:.2f} km/h\n"
+        f"Final PID Kp: {pid.Kp:.4f}\n"
+        f"Distillation Storage Path: {distill_db_path}\n"
+        f"DIP Edge Density: {edge_score:.4f}\n\n"
+        + "\n".join(history_logs)
+    )
+    fs.write(summary_path, summary_content)
     
-    print(f"\n✅ All operations completed locally. Check directory: {DOCS_DIR}")
+    print(f"\n✅ All operations completed locally. Telemetry and state saved in: {DOCS_DIR}")
