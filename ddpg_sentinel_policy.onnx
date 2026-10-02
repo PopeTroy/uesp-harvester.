@@ -8,12 +8,19 @@ import torch.optim as optim
 import onnxruntime as ort
 
 # ==============================================================================
+# CREDENTIALS & ENDPOINTS (NVIDIA NIM TEACHER INTEGRATION)
+# ==============================================================================
+NVIDIA_KEY = os.getenv("NVIDIA_API_KEY")
+NVIDIA_ENDPOINT = os.getenv("NVIDIA_ENDPOINT", "https://integrate.api.nvidia.com/v1/chat/completions")
+PRIMARY_NIM_MODEL = os.getenv("PRIMARY_NIM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
+
+# ==============================================================================
 # 1. DDPG NEURAL NETWORK ARCHITECTURE (UGPE-OMEGA SENTINEL)
 # ==============================================================================
 
 class Actor(nn.Module):
     """
-    Continuous Action Policy Network (Actor).
+    Continuous Action Policy Network (Actor / Student).
     Maps environmental state representations directly to continuous tactical action vectors
     under Holographic/Quantum filtering (Eq 2, 3) and Kinematic constraints (Eq 6).
     """
@@ -58,7 +65,67 @@ class Critic(nn.Module):
 
 
 # ==============================================================================
-# 2. TACTICAL REWARD SYNTHESIS ENGINE (Eq 4, 5, 7, 8)
+# 2. NVIDIA NIM TEACHER DISTILLATION ENGINE
+# ==============================================================================
+
+class NVIDIADistillTeacher:
+    """
+    Teacher Microservice Engine: Queries NVIDIA NIM API to distill expert-level
+    guidance into target action tensors for the local ONNX Student policy.
+    """
+    def __init__(self, api_key=None, model=PRIMARY_NIM_MODEL):
+        self.api_key = api_key or NVIDIA_KEY
+        self.endpoint = NVIDIA_ENDPOINT
+        self.model = model
+
+    def query_teacher_action(self, state_tensor: torch.Tensor, action_dim=4) -> torch.Tensor:
+        """
+        Requests optimal tactical action guidance from the NVIDIA NIM Microservice 
+        based on the current environment state tensor.
+        """
+        if not self.api_key:
+            # Synthetic fallback teacher vector if API Key is not set
+            return torch.tanh(state_tensor[:, :action_dim])
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+
+        state_list = state_tensor.detach().cpu().numpy().tolist()[0]
+        prompt_content = (
+            f"Given state vector {state_list}, output exactly {action_dim} float numbers "
+            f"between -1.0 and 1.0 separated by commas representing action vector."
+        )
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": "You are a tactical control engine. Output comma-separated floats only."},
+                {"role": "user", "content": prompt_content}
+            ],
+            "temperature": 0.1,
+            "max_tokens": 64
+        }
+
+        try:
+            res = requests.post(self.endpoint, headers=headers, json=payload, timeout=5)
+            if res.status_code == 200:
+                text_out = res.json()["choices"][0]["message"]["content"].strip()
+                parsed_vals = [float(val.strip()) for val in text_out.split(",") if val.strip()]
+                if len(parsed_vals) == action_dim:
+                    teacher_action = torch.tensor([parsed_vals], dtype=torch.float32)
+                    return torch.clamp(teacher_action, -1.0, 1.0)
+        except Exception as e:
+            print(f"[WARN] Teacher NIM query failed ({e}); defaulting to synthesized teacher vector.")
+
+        # Fallback teacher tensor derived directly from state
+        return torch.tanh(state_tensor[:, :action_dim])
+
+
+# ==============================================================================
+# 3. TACTICAL REWARD SYNTHESIS ENGINE (Eq 4, 5, 7, 8)
 # ==============================================================================
 
 def compute_tactical_reward(state, action, target_identity, dilation_ratio=6000.0):
@@ -89,7 +156,7 @@ def compute_tactical_reward(state, action, target_identity, dilation_ratio=6000.
 
 
 # ==============================================================================
-# 3. QUANTUM DILATION SANDBOX ENVIRONMENT (1:6000 RATIO)
+# 4. QUANTUM DILATION SANDBOX ENVIRONMENT (1:6000 RATIO)
 # ==============================================================================
 
 class QuantumSandboxEnv:
@@ -115,15 +182,16 @@ class QuantumSandboxEnv:
 
 
 # ==============================================================================
-# 4. TRAINING & ONNX EXPORT PIPELINE (`sandbox_ddpg.py`)
+# 5. TRAINING & ONNX EXPORT PIPELINE (`sandbox_ddpg.py`)
 # ==============================================================================
 
 def train_and_export_onnx(output_onnx_path="ddpg_sentinel_policy.onnx"):
     """
     Trains the DDPG Actor policy within the quantum sandbox environment 
-    and exports the neural graph directly to ONNX format.
+    using NVIDIA NIM Teacher-Student Knowledge Distillation and exports
+    the neural graph directly to ONNX format.
     """
-    print("🚀 Initializing DDPG Sentinel Training Engine...")
+    print("🚀 Initializing DDPG Sentinel Training Engine with NVIDIA NIM Teacher-Student Distillation...")
     
     state_dim = 16
     action_dim = 4
@@ -132,12 +200,16 @@ def train_and_export_onnx(output_onnx_path="ddpg_sentinel_policy.onnx"):
     actor = Actor(state_dim=state_dim, action_dim=action_dim)
     critic = Critic(state_dim=state_dim, action_dim=action_dim)
     
+    teacher = NVIDIADistillTeacher(action_dim=action_dim)
+    distillation_criterion = nn.MSELoss()
+    distill_alpha = 0.4  # Weight coefficient balancing RL loss and Teacher Distillation loss
+    
     actor_optimizer = optim.Adam(actor.parameters(), lr=1e-4)
     critic_optimizer = optim.Adam(critic.parameters(), lr=1e-3)
 
     target_identity = torch.ones(1, state_dim) * 0.5
 
-    print("⚡ Training Actor-Critic policy in 1:6000 Quantum Dilation Sandbox...")
+    print("⚡ Training Actor-Critic policy in 1:6000 Quantum Dilation Sandbox with Teacher Distillation...")
     
     actor.train()
     critic.train()
@@ -147,8 +219,11 @@ def train_and_export_onnx(output_onnx_path="ddpg_sentinel_policy.onnx"):
         state_np = env.reset()
         state_tensor = torch.from_numpy(state_np)
         
-        # Predict continuous action vector (Eq 6)
+        # Predict continuous action vector (Student Output)
         predicted_action = actor(state_tensor)
+        
+        # Query NVIDIA NIM Teacher Action Target
+        teacher_action_target = teacher.query_teacher_action(state_tensor, action_dim=action_dim)
         
         # Compute Critic evaluation score
         q_value = critic(state_tensor, predicted_action)
@@ -162,16 +237,21 @@ def train_and_export_onnx(output_onnx_path="ddpg_sentinel_policy.onnx"):
         critic_loss.backward(retain_graph=True)
         critic_optimizer.step()
         
-        # Actor Update (Maximize expected Q-value)
-        actor_loss = -torch.mean(critic(state_tensor, actor(state_tensor)))
+        # Actor Update (Maximize expected Q-value + Distillation Loss against Teacher Target)
+        rl_actor_loss = -torch.mean(critic(state_tensor, actor(state_tensor)))
+        distill_loss = distillation_criterion(predicted_action, teacher_action_target)
+        
+        # Combined Student-Teacher Loss Function
+        total_actor_loss = (1.0 - distill_alpha) * rl_actor_loss + (distill_alpha * distill_loss)
+        
         actor_optimizer.zero_grad()
-        actor_loss.backward()
+        total_actor_loss.backward()
         actor_optimizer.step()
 
         if epoch % 10 == 0:
-            print(f"   [Epoch {epoch:02d}/50] Actor Loss: {actor_loss.item():.6f} | Q-Value: {q_value.item():.6f}")
+            print(f"   [Epoch {epoch:02d}/50] Total Actor Loss: {total_actor_loss.item():.6f} | Distill Loss: {distill_loss.item():.6f} | Q-Value: {q_value.item():.6f}")
 
-    print("\n📦 Exporting trained policy to ONNX format...")
+    print("\n📦 Exporting trained distilled policy to ONNX format...")
     actor.eval()
     
     # Dummy input matching input dimensions (Batch Size 1, State Dim 16)
@@ -200,7 +280,7 @@ def train_and_export_onnx(output_onnx_path="ddpg_sentinel_policy.onnx"):
 
 
 # ==============================================================================
-# 5. LIVE TELEMETRY & ONNX INFERENCE ENGINE
+# 6. LIVE TELEMETRY & ONNX INFERENCE ENGINE
 # ==============================================================================
 
 def fetch_live_telemetry_state(state_dim=16) -> np.ndarray:
@@ -249,11 +329,11 @@ def run_telemetry_onnx_inference(onnx_path="ddpg_sentinel_policy.onnx"):
     output_name = session.get_outputs()[0].name
 
     action_output = session.run([output_name], {input_name: input_state})[0]
-    print(f"✅ Executed Policy Action Output: {action_output[0]}")
+    print(f"✅ Executed Distilled Policy Action Output: {action_output[0]}")
 
 
 if __name__ == "__main__":
-    # 1. Train model and generate ONNX binary
+    # 1. Train model with distillation and generate ONNX binary
     train_and_export_onnx()
     
     # 2. Perform live telemetry fetch and run inference
