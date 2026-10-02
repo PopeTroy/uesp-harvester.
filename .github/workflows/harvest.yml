@@ -34,10 +34,10 @@ jobs:
           toolchain: stable
           targets: x86_64-unknown-linux-gnu
 
-      - name: Install Python Dependencies & Maturin
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt maturin
+          pip install chromadb onnxruntime torch requests reportlab
 
       - name: Ensure Rust Files Exist
         run: |
