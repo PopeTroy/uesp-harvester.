@@ -196,7 +196,7 @@ def execute_sentinel_clone_loop(prompt_text: str, policy_vec: list) -> dict:
     # Execute Teacher-Student Distillation + PID Cruise Stabilization
     distiller = TeacherStudentDistillation(storage_path=DISTILL_MEM_PATH)
     pid = PIDController(Kp=0.8 * pid_damp, Ki=0.15, Kd=0.05)
-    t_out, s_out, d_loss = distiller.train_step(current_val=60.0, target_val=100.0)
+    t_out, s_out, d_loss = distiller.train_step(current_speed=60.0, target_speed=100.0)
     distiller.save_distillation_state(step=1, teacher_out=t_out, student_out=s_out, loss=d_loss)
     pid_cmd = pid.compute(setpoint=100.0 + s_out, measured_value=60.0)
 
@@ -216,7 +216,6 @@ def query_nvidia_nim(prompt_text: str) -> str:
     
     if not api_key:
         print("[WARN] NVIDIA_API_KEY missing. Diverting to local Sentinel Clone synthesis.")
-        # Fallback to local execution payload
         policy_vec = get_ddpg_clone_policy()
         clone_telemetry = execute_sentinel_clone_loop(prompt_text, policy_vec)
         return generate_local_diagnostic_content(prompt_text, policy_vec, clone_telemetry)
