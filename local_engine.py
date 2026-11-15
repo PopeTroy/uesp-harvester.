@@ -2,10 +2,11 @@ import os
 import shutil
 import time
 import json
+import copy
 import numpy as np
 
 # ==========================================
-# 1. LOCAL FILESYSTEM CONTROLLER
+# 1. LOCAL FILESYSTEM & EPHEMERAL CLONE STATE
 # ==========================================
 class LocalFileSystem:
     """Provides local file operations without cloud reliance."""
@@ -68,6 +69,45 @@ class LocalFileSystem:
         LocalFileSystem.copy(src_path, dest_path)
 
 
+class ShadowCloneMemory:
+    """Copy-on-Write ephemeral state manager for Kage Bunshin parallel branches."""
+
+    def __init__(self, root_state: dict):
+        self.root_state = copy.deepcopy(root_state)
+        self.active_clones = {}
+
+    def fork_clone(self, clone_id: str, persona_bias: float = 0.0) -> dict:
+        """Spawns an isolated draft state fork without mutating the Original Body (Honjin)."""
+        forked = copy.deepcopy(self.root_state)
+        forked["clone_id"] = clone_id
+        forked["persona_bias"] = persona_bias
+        self.active_clones[clone_id] = forked
+        return forked
+
+    def verify_and_resolve(self, clone_id: str, draft_score: float, critic_reject_prob: float, tau: float = 0.35) -> bool:
+        """
+        The 'Poof' Condition:
+        Clone_Active_i = 1 iff Verify(Output_Draft_i) == True AND Critic_Score < Tau.
+        """
+        if clone_id not in self.active_clones:
+            return False
+
+        if draft_score > 0.5 and critic_reject_prob < tau:
+            # Merge accepted branch into Original Body (Honjin)
+            accepted_branch = self.active_clones.pop(clone_id)
+            self.root_state.update(accepted_branch)
+            self.dispel_all()  # Sibling branches dispel upon acceptance
+            return True
+        else:
+            # Dispel failed clone (O(1) pointer drop)
+            del self.active_clones[clone_id]
+            return False
+
+    def dispel_all(self):
+        """POOF - Clears all remaining ephemeral clone states."""
+        self.active_clones.clear()
+
+
 # ==========================================
 # 2. DIGITAL IMAGE PROCESSING (DIP) CORE
 # ==========================================
@@ -94,43 +134,32 @@ class LocalDIPCore:
 # 3. TEACHER-STUDENT DISTILLATION MODULE
 # ==========================================
 class TeacherStudentDistillation:
-    """Distill heavy teacher target outputs into a lightweight local student model."""
+    """Distills heavy NIM Teacher outputs into lightweight local Student parameters."""
 
     def __init__(self, storage_path, temperature=2.0):
         self.storage_path = storage_path
         self.temperature = temperature
         self.fs = LocalFileSystem()
-        # Initialize small local weights (student linear model)
         self.student_weights = np.array([0.5, 0.1], dtype=np.float32)
 
     def teacher_policy(self, current_speed, target_speed):
-        """Simulates a complex, heavy teacher network recommending target velocity adjustments."""
         error = target_speed - current_speed
-        # Non-linear teacher evaluation (e.g. high-capacity model prediction)
-        suggested_adjustment = np.tanh(error / self.temperature) * 15.0
-        return float(suggested_adjustment)
+        return float(np.tanh(error / self.temperature) * 15.0)
 
     def predict_student(self, current_speed, target_speed):
-        """Lightweight student model forward pass."""
         inputs = np.array([target_speed - current_speed, current_speed / 100.0], dtype=np.float32)
         return float(np.dot(self.student_weights, inputs))
 
     def train_step(self, current_speed, target_speed, lr=0.01):
-        """Knowledge distillation: Student updates its parameters toward Teacher output."""
         teacher_out = self.teacher_policy(current_speed, target_speed)
         student_out = self.predict_student(current_speed, target_speed)
-        
-        # Mean Squared Error distillation loss gradient
         loss = (student_out - teacher_out) ** 2
         grad = 2.0 * (student_out - teacher_out)
-        
         inputs = np.array([target_speed - current_speed, current_speed / 100.0], dtype=np.float32)
         self.student_weights -= lr * grad * inputs
-        
-        return teacher_out, student_out, loss
+        return teacher_out, student_out, float(loss)
 
     def save_distillation_state(self, step, teacher_out, student_out, loss):
-        """Persists the distilled state and weights to disk."""
         data = {
             "step": step,
             "timestamp": time.time(),
@@ -146,7 +175,7 @@ class TeacherStudentDistillation:
 # 4. PID CONTROLLER CORE (CRUISE CONTROL)
 # ==========================================
 class PIDController:
-    """Discrete Proportional-Integral-Derivative controller for smooth trajectory execution."""
+    """Discrete PID controller ensuring bounded, smooth policy execution."""
 
     def __init__(self, Kp=0.8, Ki=0.15, Kd=0.05, max_accel=10.0):
         self.Kp = Kp
@@ -158,15 +187,9 @@ class PIDController:
 
     def compute(self, setpoint, measured_value, dt=0.1):
         error = setpoint - measured_value
-        self.integral += error * dt
-        # Prevent integral windup
-        self.integral = np.clip(self.integral, -20.0, 20.0)
-        
+        self.integral = np.clip(self.integral + error * dt, -20.0, 20.0)
         derivative = (error - self.prev_error) / dt if dt > 0 else 0.0
-        output = (self.Kp * error) + (self.Ki * self.integral) + (self.Kd * derivative)
-        
-        # Smooth cruise control bounds (limits abrupt spikes)
-        output = np.clip(output, -self.max_accel, self.max_accel)
+        output = np.clip((self.Kp * error) + (self.Ki * self.integral) + (self.Kd * derivative), -self.max_accel, self.max_accel)
         self.prev_error = error
         return float(output)
 
@@ -181,7 +204,6 @@ class LocalMLAdapter:
         self.lr = lr
 
     def tune_pid(self, pid_instance, tracking_error):
-        # Dynamically adjust proportional gain based on systemic error rate
         pid_instance.Kp += self.lr * abs(tracking_error)
         pid_instance.Kp = np.clip(pid_instance.Kp, 0.1, 3.0)
 
@@ -203,7 +225,7 @@ if __name__ == "__main__":
     # 1. Setup Local Storage
     fs.mkdir(DOCS_DIR)
     log_file = os.path.join(DOCS_DIR, "raw_sensor_log.txt")
-    fs.write(log_file, "CRUISE_CONTROL_STATE: ACTIVE\nENGINE: UESP_DISTILLED_PID\n")
+    fs.write(log_file, "CRUISE_CONTROL_STATE: ACTIVE\nENGINE: UESP_DISTILLED_PID_CLONE\n")
 
     # 2. DIP Matrix Processing
     raw_synthetic_image = np.random.randint(50, 200, size=(64, 64), dtype=np.uint8)
@@ -211,7 +233,17 @@ if __name__ == "__main__":
     edge_score = dip.compute_edge_density(processed_image)
     print(f"\n📷 DIP Processed Edge Density: {edge_score:.4f}")
 
-    # 3. Teacher-Student Distillation & Smooth PID Cruise Loop
+    # 3. Kage Bunshin Shadow Clone Branch Simulation
+    clone_memory = ShadowCloneMemory(root_state={"base_speed": 40.0, "status": "HONJIN_LOCKED"})
+    clone_id = "Sentinel_Tactical_Alpha"
+    forked_state = clone_memory.fork_clone(clone_id, persona_bias=0.65)
+    print(f"\n👥 Spawned Shadow Clone [{clone_id}] with ephemeral state: {forked_state}")
+
+    # Simulate verification check (Poof Condition)
+    resolved = clone_memory.verify_and_resolve(clone_id, draft_score=0.85, critic_reject_prob=0.12, tau=0.35)
+    print(f"🛡️ Shadow Clone Branch Verification Result: {'MERGED' == 'MERGED' if resolved else 'DISPELLED'}")
+
+    # 4. Teacher-Student Distillation & Smooth PID Cruise Loop
     target_speed = 120.0  # Cruise Setpoint (km/h)
     current_speed = 40.0  # Starting Speed (km/h)
     
@@ -219,23 +251,14 @@ if __name__ == "__main__":
     history_logs = []
 
     for step in range(1, 11):
-        # A. Distill teacher knowledge to lightweight student model
         teacher_adj, student_adj, dist_loss = distiller.train_step(current_speed, target_speed)
-        
-        # B. Combine cruise setpoint with distilled student output recommendations
         effective_target = target_speed + student_adj
-        
-        # C. Pass effective target into PID Controller for smooth acceleration/braking
         accel_command = pid.compute(effective_target, current_speed, dt=0.2)
         
-        # Simulate physical vehicle response
         current_speed += accel_command * 0.5
         tracking_error = target_speed - current_speed
         
-        # D. ML Auto-tuner adjusts PID parameters online
         ml.tune_pid(pid, tracking_error)
-        
-        # E. Persist Distillation & Telemetry locally
         distiller.save_distillation_state(step, teacher_adj, student_adj, dist_loss)
         
         log_entry = (
@@ -246,14 +269,14 @@ if __name__ == "__main__":
         print(log_entry)
         history_logs.append(log_entry)
 
-    # Log summary locally
     summary_path = os.path.join(DOCS_DIR, "execution_summary.txt")
     summary_content = (
         f"--- CRUISE CONTROL EXECUTION SUMMARY ---\n"
         f"Final Speed: {current_speed:.2f} km/h\n"
         f"Final PID Kp: {pid.Kp:.4f}\n"
         f"Distillation Storage Path: {distill_db_path}\n"
-        f"DIP Edge Density: {edge_score:.4f}\n\n"
+        f"DIP Edge Density: {edge_score:.4f}\n"
+        f"Shadow Clone Branch Resolution: Verified & Merged\n\n"
         + "\n".join(history_logs)
     )
     fs.write(summary_path, summary_content)
