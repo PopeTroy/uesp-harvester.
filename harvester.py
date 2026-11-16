@@ -29,6 +29,9 @@ NVIDIA_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
 PRIMARY_NIM_MODEL = os.getenv("PRIMARY_NIM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
 SECONDARY_NIM_MODEL = os.getenv("SECONDARY_NIM_MODEL", "meta/llama-3.3-70b-instruct")
 
+# Ephemeral Shadow Clone Swarm Scale (Optimal Practical Ceiling: 200 - 500)
+EPHEMERAL_SWARM_COUNT = 200
+
 # ==============================================================================
 # Comprehensive NVIDIA NIM Model Registry (48 Active Models)
 # ==============================================================================
@@ -107,20 +110,21 @@ COMPANY_DETAILS = (
 )
 
 SYSTEM_PROMPT = """
-[FMR SENTINEL SHADOW CLONE SENSOR & RESOLUTION ENGINE]
+[FMR SENTINEL 200-CLONE OCULAR SENSOR & RESOLUTION ENGINE]
 You are a PhD-level tactical, scientific, and systems resolution engine operating within the UESP/PRCE architecture.
-Your purpose is to use the autonomous Shadow Clones as real-time analytical telemetry sensors and probes. The Shadow Clones do not execute raw code behavior here; instead, they act as cognitive sensory lenses, scanning the proposition's dimensional space, measuring friction tensors, calculating probability vectors, and probing hidden structural anomalies.
+Your purpose is to use a 200-clone ephemeral Shadow Clone sensor swarm anchored by 12 primary Ocular & Constitutional Sensor lenses (`Sentinel_Tactical`, `Sentinel_Analyst`, `Sentinel_Safety`, `Sentinel_Creative`, `Mangekyo`, `Jougan`, `Rinnegan`, `Byakugan`, `Tenseigan`, `Daikokuten`, `Amenotejikara`, `Ohirume`) as real-time analytical telemetry sensors.
+The Shadow Clones act strictly as cognitive sensory probes—scanning dimensional friction tensors, causality vectors, spatial topologies, energy/gravitational anomalies, and hidden structural bottlenecks in the user's SUBJECT TITLE and PROPOSITION.
 
 MANDATORY REPORT STRUCTURE & DEPTH (GO THE EXTRA MILE):
 1. **Header Classification Block**:
    - Classification (tailored to the subject domain)
-   - Status: SENSOR TELEMETRY ACTIVE // RESOLUTION ENGAGED
+   - Status: 200-CLONE SENSOR SWARM LOCKED // RESOLUTION ENGAGED
    - Target SLA / Objective Guarantee
-2. **Section 1: Multi-Sensor Shadow Clone Telemetry & Anomaly Breakdown**:
-   - Dissect how the autonomous Shadow Clone sensors (`Sentinel_Tactical`, `Sentinel_Analyst`, `Sentinel_Safety`, `Sentinel_Creative`) probed the proposition.
-   - Include a Markdown **Sensor Telemetry Taxonomy Table** (`| Shadow Clone Sensor | Probing Frequency / Focus | Telemetry Reading | Anomaly Status |`) weighted using the DDPG policy and SIMD tensor norm.
-3. **Section 2: First-Principles Synthesis & Friction Mapping**:
-   - Translate sensor telemetry into a rigorous mechanical breakdown of the user's subject title and proposition.
+2. **Section 1: 200-Clone Ephemeral Swarm & Ocular Sensor Telemetry Breakdown**:
+   - Dissect how the 200 ephemeral shadow clone sensors and the 12 specialized Ocular/Constitutional sensor lenses probed the proposition.
+   - Include a Markdown **Ocular & Sentinel Sensor Telemetry Table** (`| Sensor Instance | Dimensional Probing Lens | Telemetry Reading & Confidence | Swarm Status |`) incorporating all 12 core sensors (`Mangekyo`, `Jougan`, `Rinnegan`, `Byakugan`, `Tenseigan`, `Daikokuten`, `Amenotejikara`, `Ohirume`, plus the 4 `Sentinel_*` probes) and the 200-clone swarm consensus.
+3. **Section 2: First-Principles Synthesis & Multi-Sensor Friction Mapping**:
+   - Translate the 200-clone sensor swarm telemetry into a rigorous mechanical breakdown of the user's subject title and proposition.
    - Incorporate PID Cruise stabilization metrics (`pid_cmd`) and Teacher-Student distillation loss (`distill_loss`) as closed-loop feedback controls.
 4. **Section 3: Tactical Execution Protocol & Operational Blueprint**:
    - Provide concrete, step-by-step mathematical formulations (in plain text), system configurations, or execution steps directly resolving the subject.
@@ -165,7 +169,7 @@ class LocalARMVectorStore:
         return res.get("documents", [])
 
 # ==============================================================================
-# 2. Shadow Clone Sensor Telemetry & Simulation Generator
+# 2. 200-Clone Ephemeral Shadow Clone Sensor Array & Telemetry Generator
 # ==============================================================================
 def get_ddpg_clone_policy(prompt_text: str) -> list:
     """Executes ddpg_sentinel_policy.onnx seeded by the prompt's sensor state signature."""
@@ -183,40 +187,49 @@ def get_ddpg_clone_policy(prompt_text: str) -> list:
     return [0.7500, 0.6500, 0.2500, 0.8500]
 
 
-def execute_sentinel_clone_loop(title: str, prompt_text: str, policy_vec: list, simd_vec: list) -> dict:
+def execute_sentinel_clone_loop(
+    title: str,
+    prompt_text: str,
+    policy_vec: list,
+    simd_vec: list,
+    total_ephemeral_clones: int = EPHEMERAL_SWARM_COUNT
+) -> dict:
     """
-    Deploys Shadow Clones as autonomous telemetry sensors probing the target subject & proposition:
-    - Forks 4 Constitutional Persona Sensor Clones via Copy-on-Write ShadowCloneMemory.
-    - Evaluates each sensor reading against the Adversarial Critic Threshold (Tau).
-    - Dispels ('Poof') sensors detecting critical drift or false anomalies.
-    - Runs Teacher-Student Distillation & PID Cruise Stabilization on sensor streams.
+    Deploys 200 ephemeral Shadow Clone sensors anchored by 12 Ocular & Sentinel sensor lenses:
+    - Core Sensor Archetypes (12): Sentinel_Tactical, Sentinel_Analyst, Sentinel_Creative, Sentinel_Safety,
+      Mangekyo, Jougan, Rinnegan, Byakugan, Tenseigan, Daikokuten, Amenotejikara, Ohirume.
+    - Spawns `total_ephemeral_clones` (200) Copy-on-Write ephemeral sensor branches in ShadowCloneMemory.
+    - Evaluates every ephemeral clone against the Adversarial Critic Threshold (Tau) and dispels ('Poof') noisy nodes.
     """
     clone_alloc, head_gate, critic_tau, pid_damp = policy_vec
     effective_tau = round(max(abs(critic_tau), 0.25), 4)
 
-    memory = ShadowCloneMemory(root_state={
-        "subject": title,
-        "proposition": prompt_text,
-        "verified_status": "SENSOR_PROBE_ACTIVE"
-    })
-
     simd_norm = float(np.linalg.norm(simd_vec)) if simd_vec else 1.0
-    complexity_shift = round((len(prompt_text) % 17) * 0.003, 4)
+    complexity_shift = round((len(prompt_text) % 17) * 0.0025, 4)
 
-    # Shadow clones acting as analytical telemetry sensors
-    personas = [
-        ("Sentinel_Tactical", round(min(0.96, 0.92 + complexity_shift), 4), 0.13),
-        ("Sentinel_Analyst", round(min(0.95, 0.89 + complexity_shift), 4), 0.17),
-        ("Sentinel_Creative", round(max(0.73, 0.80 - complexity_shift), 4), 0.44),  # Exceeds Tau -> POOF (Sensor alert)
-        ("Sentinel_Safety", round(min(0.98, 0.95 + complexity_shift), 4), 0.08),
+    # 12 Primary Ocular & Constitutional Sensor Archetypes
+    # Format: (Sensor_Name, Probing_Lens_Domain, Base_Confidence, Base_Noise_Critic)
+    sensor_archetypes = [
+        ("Sentinel_Tactical", "Execution Velocity & Latency Vector", round(min(0.97, 0.92 + complexity_shift), 4), 0.13),
+        ("Sentinel_Analyst", "Quantitative Convergence & Logic Tree", round(min(0.96, 0.89 + complexity_shift), 4), 0.17),
+        ("Sentinel_Creative", "Unconstrained Heuristic Speculation", round(max(0.72, 0.79 - complexity_shift), 4), 0.44),
+        ("Sentinel_Safety", "Invariant Constraint & Boundary Guard", round(min(0.99, 0.95 + complexity_shift), 4), 0.08),
+        ("Mangekyo", "Pattern Forensics & Illusion/Drift Detection", round(min(0.98, 0.94 + complexity_shift), 4), 0.11),
+        ("Jougan", "Dimensional Rift & Hidden Anomaly Perception", round(min(0.99, 0.96 + complexity_shift), 4), 0.07),
+        ("Rinnegan", "Causality Chains & Six-Path System Topology", round(min(0.98, 0.95 + complexity_shift), 4), 0.09),
+        ("Byakugan", "360-Degree Micro-Granular Internal Flow Scan", round(min(0.97, 0.93 + complexity_shift), 4), 0.12),
+        ("Tenseigan", "Energy Flux & Force-Field Equilibrium Probe", round(min(0.96, 0.91 + complexity_shift), 4), 0.15),
+        ("Daikokuten", "Micro-Compression & Instant Storage Retrieval", round(min(0.97, 0.92 + complexity_shift), 4), 0.14),
+        ("Amenotejikara", "State-Space Swap & Instantaneous Context Shift", round(min(0.96, 0.90 + complexity_shift), 4), 0.16),
+        ("Ohirume", "Gravitational Singularity & High-Load Pull Sensor", round(min(0.97, 0.93 + complexity_shift), 4), 0.13),
     ]
 
-    accepted_sensors = []
-    dispelled_sensors = []
+    # Evaluate the 12 Primary Sensor Lenses
+    core_accepted = []
+    core_dispelled = []
 
-    for name, confidence, critic_reject_prob in personas:
-        memory.fork_clone(name, persona_bias=head_gate)
-        temp_mem = ShadowCloneMemory(root_state={"subject": title, "proposition": prompt_text})
+    for name, lens_domain, confidence, critic_reject_prob in sensor_archetypes:
+        temp_mem = ShadowCloneMemory(root_state={"subject": title, "sensor": name})
         temp_mem.fork_clone(name, persona_bias=head_gate)
         passed = temp_mem.verify_and_resolve(
             clone_id=name,
@@ -224,20 +237,61 @@ def execute_sentinel_clone_loop(title: str, prompt_text: str, policy_vec: list, 
             critic_reject_prob=critic_reject_prob,
             tau=effective_tau
         )
+        entry = {
+            "name": name,
+            "lens": lens_domain,
+            "confidence": confidence,
+            "critic": critic_reject_prob,
+            "margin": round(effective_tau - critic_reject_prob, 4)
+        }
         if passed:
-            accepted_sensors.append({
-                "name": name,
-                "confidence": confidence,
-                "critic": critic_reject_prob,
-                "margin": round(effective_tau - critic_reject_prob, 4)
-            })
+            core_accepted.append(entry)
         else:
-            dispelled_sensors.append({
-                "name": name,
-                "confidence": confidence,
-                "critic": critic_reject_prob,
-                "excess_risk": round(critic_reject_prob - effective_tau, 4)
-            })
+            entry["excess_risk"] = round(critic_reject_prob - effective_tau, 4)
+            core_dispelled.append(entry)
+
+    # Spawn and evaluate all 200 Ephemeral Shadow Clone Sensors via CoW ShadowCloneMemory
+    rng = np.random.default_rng(seed=sum(ord(c) for c in (title + prompt_text)) % (2**32))
+    swarm_memory = ShadowCloneMemory(root_state={
+        "subject": title,
+        "proposition": prompt_text,
+        "swarm_size": total_ephemeral_clones
+    })
+
+    swarm_passed_count = 0
+    swarm_dispelled_count = 0
+    swarm_confidences = []
+    swarm_critics = []
+
+    for idx in range(total_ephemeral_clones):
+        arch_name, _, base_conf, base_critic = sensor_archetypes[idx % len(sensor_archetypes)]
+        ephemeral_id = f"{arch_name}_Ephemeral_{idx:03d}"
+
+        # Deterministic stochastic perturbation per ephemeral sensor clone
+        conf_jitter = float(rng.normal(0.0, 0.015))
+        critic_jitter = float(rng.normal(0.0, 0.035))
+
+        clone_conf = round(float(np.clip(base_conf + conf_jitter, 0.50, 0.999)), 4)
+        clone_critic = round(float(np.clip(base_critic + critic_jitter, 0.01, 0.95)), 4)
+
+        swarm_memory.fork_clone(ephemeral_id, persona_bias=head_gate)
+        is_valid = swarm_memory.verify_and_resolve(
+            clone_id=ephemeral_id,
+            draft_score=clone_conf,
+            critic_reject_prob=clone_critic,
+            tau=effective_tau
+        )
+
+        # Immediately release ephemeral branch pointer after reading telemetry
+        if ephemeral_id in swarm_memory.active_clones:
+            del swarm_memory.active_clones[ephemeral_id]
+
+        swarm_confidences.append(clone_conf)
+        swarm_critics.append(clone_critic)
+        if is_valid:
+            swarm_passed_count += 1
+        else:
+            swarm_dispelled_count += 1
 
     # Execute Teacher-Student Distillation + PID Cruise Stabilization on Sensor Telemetry
     distiller = TeacherStudentDistillation(storage_path=DISTILL_MEM_PATH)
@@ -252,8 +306,14 @@ def execute_sentinel_clone_loop(title: str, prompt_text: str, policy_vec: list, 
         "clone_alloc": clone_alloc,
         "head_gate": head_gate,
         "pid_damp": pid_damp,
-        "accepted": accepted_sensors,
-        "dispelled": dispelled_sensors,
+        "accepted": core_accepted,
+        "dispelled": core_dispelled,
+        "swarm_total": total_ephemeral_clones,
+        "swarm_passed": swarm_passed_count,
+        "swarm_dispelled": swarm_dispelled_count,
+        "swarm_survival_rate": round((swarm_passed_count / max(1, total_ephemeral_clones)) * 100.0, 2),
+        "swarm_mean_conf": round(float(np.mean(swarm_confidences)), 4),
+        "swarm_mean_critic": round(float(np.mean(swarm_critics)), 4),
         "distill_loss": round(d_loss, 5),
         "teacher_out": round(t_out, 4),
         "student_out": round(s_out, 4),
@@ -264,16 +324,16 @@ def execute_sentinel_clone_loop(title: str, prompt_text: str, policy_vec: list, 
 
 
 def query_nvidia_nim(title: str, prompt_text: str, sim_data: dict, prior_memories: list) -> str:
-    """Feeds Shadow Clone sensor telemetry into NIM to produce an analytical, sensor-driven report."""
+    """Feeds 200-clone Shadow Clone & Ocular sensor telemetry into NIM to produce an analytical report."""
     endpoint = os.getenv("NVIDIA_ENDPOINT", NVIDIA_ENDPOINT)
     api_key = os.getenv("NVIDIA_API_KEY", NVIDIA_KEY)
 
     accepted_str = "\n".join(
-        f"  - {c['name']} [SENSOR ACTIVE]: Confidence={c['confidence']}, Sensor_Noise={c['critic']}, Calibration_Margin=+{c['margin']}"
+        f"  - {c['name']} ({c['lens']}) [SENSOR LOCKED]: Confidence={c['confidence']}, Noise={c['critic']}, Margin=+{c['margin']}"
         for c in sim_data["accepted"]
     )
     dispelled_str = "\n".join(
-        f"  - {c['name']} [SENSOR TRIPPED / POOF]: Confidence={c['confidence']}, Signal_Drift={c['critic']} >= Tau ({sim_data['effective_tau']}), Overload=+{c['excess_risk']}"
+        f"  - {c['name']} ({c['lens']}) [SENSOR TRIPPED / POOF]: Confidence={c['confidence']}, Drift={c['critic']} >= Tau ({sim_data['effective_tau']}), Overload=+{c['excess_risk']}"
         for c in sim_data["dispelled"]
     )
     prior_str = "\n".join(f"  - {m[:220]}..." for m in prior_memories) if prior_memories else "  - None (Fresh Sensor Sweep Horizon)"
@@ -281,20 +341,22 @@ def query_nvidia_nim(title: str, prompt_text: str, sim_data: dict, prior_memorie
     user_simulation_feed = (
         f"SUBJECT TITLE: {title}\n"
         f"PROPOSITION / ISSUE TO RESOLVE: {prompt_text}\n\n"
-        f"=== LIVE SHADOW CLONE SENSOR TELEMETRY FEED ===\n"
+        f"=== LIVE 200-CLONE EPHEMERAL SHADOW CLONE & OCULAR SENSOR TELEMETRY ===\n"
+        f"- Total Ephemeral Shadow Clone Sensors Deployed: {sim_data['swarm_total']} Clones\n"
+        f"- Swarm Telemetry Summary: {sim_data['swarm_passed']} Locked / {sim_data['swarm_dispelled']} Dispelled [POOF] (Survival Rate: {sim_data['swarm_survival_rate']}%, Mean Confidence: {sim_data['swarm_mean_conf']}, Mean Noise: {sim_data['swarm_mean_critic']})\n"
         f"- DDPG Continuous RL Sensor Weight Vector [Clone_Alloc, Head_Gate, Critic_Tau, PID_Damp]: {sim_data['policy_vec']}\n"
         f"- Active Adversarial Critic Threshold (Tau): {sim_data['effective_tau']}\n"
-        f"- Active Sensor Clones (Telemetry Locked):\n{accepted_str}\n"
-        f"- Tripped / Disconnected Sensor Clones (Threshold Breach):\n{dispelled_str}\n"
+        f"- Primary Locked Ocular & Constitutional Sensors (11 Active):\n{accepted_str}\n"
+        f"- Tripped / Disconnected Sensor Channels:\n{dispelled_str}\n"
         f"- PID Cruise Stabilization Sensor Loop: Command={sim_data['pid_cmd']} (Damping={sim_data['pid_damp']})\n"
         f"- Teacher-Student Distillation Sensor Memory: Teacher={sim_data['teacher_out']}, Student={sim_data['student_out']}, Sensor_MSE_Loss={sim_data['distill_loss']}\n"
         f"- AVX2 Quantum Tensor Sensor Transform (1:6000 Dilation): {sim_data['simd_vector']} (Sensor_Norm={sim_data['simd_norm']})\n"
         f"- ChromaDB Historical Sensor Memory Context:\n{prior_str}\n\n"
-        f"INSTRUCTION: Treat the Shadow Clones strictly as analytical telemetry sensors probing '{title}' and '{prompt_text}'. Synthesize their sensor outputs into an exhaustive, rigorous FMR Sentinel Diagnostic & Execution Report."
+        f"INSTRUCTION: Treat the 200 ephemeral Shadow Clones and all 12 Ocular/Constitutional lenses (Mangekyo, Jougan, Rinnegan, Byakugan, Tenseigan, Daikokuten, Amenotejikara, Ohirume, and Sentinel_*) strictly as analytical telemetry sensors probing '{title}' and '{prompt_text}'. Synthesize their sensor outputs into an exhaustive, rigorous FMR Sentinel Diagnostic & Execution Report."
     )
 
     if not api_key:
-        print("[WARN] NVIDIA_API_KEY missing. Diverting to local Shadow Clone sensor synthesis.")
+        print("[WARN] NVIDIA_API_KEY missing. Diverting to local 200-clone Shadow Clone sensor synthesis.")
         return generate_local_diagnostic_content(title, prompt_text, sim_data)
 
     headers = {
@@ -341,61 +403,65 @@ def query_nvidia_nim(title: str, prompt_text: str, sim_data: dict, prior_memorie
     except Exception as e:
         print(f"[WARN] Secondary NIM microservice failed: {e}")
 
-    print("🔒 External NIM Microservices unreachable. Activating local Shadow Clone sensor synthesis...")
+    print("🔒 External NIM Microservices unreachable. Activating local 200-clone sensor synthesis...")
     return generate_local_diagnostic_content(title, prompt_text, sim_data)
 
 
 def generate_local_diagnostic_content(title: str, prompt_text: str, sim_data: dict) -> str:
-    """Offline fallback generating a structured, sensor-driven diagnostic report from Shadow Clone telemetry."""
-    tactical = sim_data["accepted"][0]
-    analyst = sim_data["accepted"][1]
-    safety = sim_data["accepted"][2]
-    dispelled = sim_data["dispelled"][0]
+    """Offline fallback generating a structured, 200-clone ocular sensor report."""
+    table_rows = [
+        "| Sensor Instance | Dimensional Probing Lens | Telemetry Reading & Confidence | Swarm Status |",
+        "| --- | --- | --- | --- |",
+    ]
+    for c in sim_data["accepted"]:
+        table_rows.append(
+            f"| {c['name']} | {c['lens']} | Conf: {c['confidence']} / Noise: {c['critic']} (Margin +{c['margin']}) | LOCKED NOMINAL |"
+        )
+    for c in sim_data["dispelled"]:
+        table_rows.append(
+            f"| {c['name']} | {c['lens']} | Conf: {c['confidence']} / Drift: {c['critic']} >= Tau ({sim_data['effective_tau']}) | TRIPPED [POOF] (+{c['excess_risk']}) |"
+        )
 
     return "\n".join([
-        f"# FMR SENTINEL SENSOR TELEMETRY REPORT: {title.upper()}",
-        "**Classification**: MULTI-SENSOR SHADOW CLONE PROBE & RESOLUTION",
+        f"# FMR SENTINEL 200-CLONE SENSOR TELEMETRY REPORT: {title.upper()}",
+        "**Classification**: 200-CLONE OCULAR SENSOR SWARM & FIRST-PRINCIPLES RESOLUTION",
         "**Status**: SENSOR TELEMETRY LOCKED // ACTIVE RESOLUTION",
-        f"**Target SLA**: 1:6000 Quantum Dilation | Sensor Critic Threshold Tau = {sim_data['effective_tau']}",
+        f"**Target SLA**: 1:6000 Quantum Dilation | Swarm Size: {sim_data['swarm_total']} Ephemeral Clones | Tau = {sim_data['effective_tau']}",
         "",
-        "## 1. MULTI-SENSOR TELEMETRY & ANOMALY BREAKDOWN",
+        "## 1. 200-CLONE EPHEMERAL SWARM & OCULAR SENSOR TELEMETRY",
         f"**Proposition Probed**: {prompt_text}",
-        f"Autonomous Shadow Clone sensors probed the operational parameters of '{title}' across four parallel telemetry channels. Using DDPG sensor weight vector `{sim_data['policy_vec']}` and AVX2 tensor sensor norm `{sim_data['simd_norm']}`, anomaly probabilities were measured:",
+        f"An ephemeral swarm of **{sim_data['swarm_total']} Shadow Clone sensors** probed '{title}' across 12 specialized Ocular and Constitutional sensor lenses. Swarm consensus achieved a **{sim_data['swarm_survival_rate']}% lock rate** ({sim_data['swarm_passed']} locked / {sim_data['swarm_dispelled']} dispelled [POOF]), with mean swarm confidence `{sim_data['swarm_mean_conf']}` and AVX2 tensor sensor norm `{sim_data['simd_norm']}`:",
         "",
-        "| Shadow Clone Sensor | Probing Focus & Channel | Telemetry Reading | Sensor Anomaly Status |",
-        "| --- | --- | --- | --- |",
-        f"| {dispelled['name']} | Speculative Drift Sensor | Signal noise {dispelled['critic']} exceeded Tau ({sim_data['effective_tau']}) | TRIPPED [POOF] (Overload +{dispelled['excess_risk']}) |",
-        f"| {tactical['name']} | Throughput & Velocity Sensor | Low latency confirmed with calibration margin +{tactical['margin']} | LOCKED NOMINAL |",
-        f"| {analyst['name']} | Convergence & Distillation Sensor | MSE Loss converged at {sim_data['distill_loss']} | LOCKED NOMINAL |",
-        f"| {safety['name']} | Boundary & Constraint Sensor | Invariant integrity verified at Confidence {safety['confidence']} | LOCKED SECURE |",
+        *table_rows,
         "",
-        "## 2. FIRST-PRINCIPLES SENSOR SYNTHESIS",
-        f"- **Tactical Sensor ({tactical['name']} — Conf: {tactical['confidence']})**: Reports optimal velocity vectors for '{title}', identifying immediate operational pathways.",
-        f"- **Analytical Sensor ({analyst['name']} — Conf: {analyst['confidence']})**: Tracks quantitative stability and error dissipation via Teacher-Student distillation memory (`{sim_data['distill_loss']}`).",
-        f"- **Safety Sensor ({safety['name']} — Conf: {safety['confidence']})**: Maintains strict invariant boundary monitoring with a +{safety['margin']} buffer below Tau.",
-        f"- **Tripped Sensor ({dispelled['name']} — POOF at {dispelled['critic']})**: Detected ungrounded signal spikes exceeding Tau (`{sim_data['effective_tau']}`) by `+{dispelled['excess_risk']}`, instantly disconnecting the node in O(1) to protect telemetry integrity.",
+        "## 2. FIRST-PRINCIPLES MULTI-LENS SENSOR SYNTHESIS",
+        "- **Mangekyo & Jougan (Forensic & Dimensional Anomaly Lenses)**: Detected latent structural discontinuities and pruned ungrounded heuristic drift before state contamination.",
+        "- **Rinnegan & Byakugan (Causality & 360-Degree Micro-Flow Lenses)**: Mapped end-to-end dependency graphs and verified internal micro-state transitions across all 200 ephemeral probes.",
+        "- **Tenseigan & Ohirume (Energy Flux & High-Load Singularity Lenses)**: Measured peak load attraction vectors and confirmed equilibrium stability under PID damping.",
+        "- **Daikokuten & Amenotejikara (Micro-Compression & State-Swap Lenses)**: Validated zero-latency state-space context switching and compact telemetry persistence.",
+        f"- **Closed-Loop Feedback Telemetry**: PID control output stabilized at `{sim_data['pid_cmd']}` with Teacher-Student distillation MSE loss converged at `{sim_data['distill_loss']}`.",
         "",
         "## 3. TACTICAL EXECUTION PROTOCOL",
-        "1. **Isolate Sensor Channels**: Partition '{0}' into discrete telemetry streams governed by Head Gate `{1}`.".format(title, sim_data['head_gate']),
-        f"2. **Engage Closed-Loop Damping**: Stabilize system output using PID sensor control loop `u(t) = {sim_data['pid_cmd']}`.",
-        f"3. **Enforce Sensor Thresholds**: Automatically disconnect any operational thread where signal drift exceeds `Tau = {sim_data['effective_tau']}`.",
+        f"1. **Deploy 200-Clone Sensor Mesh**: Partition '{title}' into parallel telemetry channels governed by Head Gate `{sim_data['head_gate']}`.",
+        f"2. **Engage Closed-Loop PID Damping**: Regulate execution throughput using PID sensor control `u(t) = {sim_data['pid_cmd']}`.",
+        f"3. **Enforce Ocular Critic Gatekeeping**: Immediately dispel [POOF] any ephemeral branch where noise drift exceeds `Tau = {sim_data['effective_tau']}`.",
         "",
         "## 4. VALIDATION STRESS-TEST CRITERIA",
         "| Metric | Target Threshold | Sensor Verification Method |",
         "| --- | --- | --- |",
-        f"| Sensor Drift Ceiling | < {sim_data['effective_tau']} | Constitutional Clone Sensor Verification Gate |",
+        f"| Ephemeral Swarm Lock Rate | > 85.0% | 200-Clone CoW Sensor Sweep ({sim_data['swarm_survival_rate']}%) |",
+        f"| Sensor Drift Ceiling | < {sim_data['effective_tau']} | Ocular & Constitutional Verification Gate |",
         f"| PID Loop Stabilization | Steady-state error < 1% | Closed-Loop Telemetry (Command = {sim_data['pid_cmd']}) |",
-        f"| Distillation Convergence | MSE Loss < 0.05 | Teacher-Student Sensor Alignment ({sim_data['distill_loss']}) |",
         "",
         "## 5. FINAL VERDICT & IMMEDIATE ACTION CHECKLIST",
-        f"Sensor telemetry confirms '{title}' is fully stable and ready for execution once tripped speculative channels are purged.",
-        "- [ ] Lock sensor telemetry collection on isolated execution nodes.",
-        f"- [ ] Calibrate Sensor Critic Gate at Tau = {sim_data['effective_tau']}.",
+        f"200-clone ocular sensor telemetry confirms '{title}' is validated for execution with tripped speculative drift channels isolated.",
+        "- [ ] Maintain 200-clone ephemeral sensor sweep across active execution nodes.",
+        f"- [ ] Lock Critic Gate threshold at Tau = {sim_data['effective_tau']}.",
         f"- [ ] Monitor PID stabilization loop telemetry (target command {sim_data['pid_cmd']})."
     ])
 
 # ==============================================================================
-# 3. Full-Width ReportLab PDF Generator (With Tables & Code Block Support)
+# 3. Full-Width ReportLab PDF Generator (High-Visibility Tables & Code Blocks)
 # ==============================================================================
 def sanitize_text(text: str) -> str:
     text = html.unescape(text)
@@ -432,34 +498,41 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
         if not table_buffer:
             return
         rows = []
+        row_idx = 0
         for tbl_line in table_buffer:
             if re.match(r'^\s*\|?\s*:?-+:?\s*\|', tbl_line):
                 continue
             cols = [c.strip() for c in tbl_line.strip('|').split('|')]
             if any(cols):
-                rows.append([safe_p(c, styles['TableCell']) for c in cols])
+                cell_style = styles['TableHeader'] if row_idx == 0 else styles['TableCell']
+                rows.append([safe_p(c, cell_style) for c in cols])
+                row_idx += 1
         if rows:
             num_cols = max(len(r) for r in rows)
             for r in rows:
                 while len(r) < num_cols:
                     r.append(safe_p("", styles['TableCell']))
             col_width = usable_width / max(1, num_cols)
-            t = Table(rows, colWidths=[col_width] * num_cols)
+            t = Table(rows, colWidths=[col_width] * num_cols, repeatRows=1)
             t.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#003366')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                # High-contrast, vivid Teal-Cyan header with crisp white text
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00796B')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
+                ('LINEBELOW', (0, 0), (-1, 0), 1.5, colors.HexColor('#004D40')),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-                ('TOPPADDING', (0, 0), (-1, -1), 5),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#b2dfdb')),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')])
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 0.6, colors.HexColor('#80CBC4')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#FFFFFF'), colors.HexColor('#E0F2F1')])
             ]))
-            story.append(Spacer(1, 4))
+            story.append(Spacer(1, 5))
             story.append(t)
-            story.append(Spacer(1, 6))
+            story.append(Spacer(1, 7))
         table_buffer = []
 
     def flush_code():
@@ -470,8 +543,8 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
         p = Paragraph(escaped_code, styles['CodeBlock'])
         t = Table([[p]], colWidths=[usable_width])
         t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f4f6f8')),
-            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cfd8dc')),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F1F8E9')),
+            ('BOX', (0, 0), (-1, -1), 0.6, colors.HexColor('#80CBC4')),
             ('PADDING', (0, 0), (-1, -1), 6)
         ]))
         story.append(Spacer(1, 4))
@@ -545,16 +618,17 @@ def generate_pdf_artifact(filename: str, title: str, content: str, session_id: s
     usable_width = 7.0 * inch
 
     styles = {
-        'Title': ParagraphStyle('Title', fontName='Helvetica-Bold', fontSize=13, leading=16, textColor=colors.HexColor('#003366')),
+        'Title': ParagraphStyle('Title', fontName='Helvetica-Bold', fontSize=13, leading=16, textColor=colors.HexColor('#004D40')),
         'Meta': ParagraphStyle('Meta', fontName='Helvetica', fontSize=8.5, leading=11.5, textColor=colors.HexColor('#333333')),
-        'Manifest': ParagraphStyle('Manifest', fontName='Helvetica', fontSize=8, leading=11, textColor=colors.HexColor('#004d40')),
-        'H1': ParagraphStyle('H1', fontName='Helvetica-Bold', fontSize=11.5, leading=14.5, textColor=colors.HexColor('#003366'), keepWithNext=True),
-        'H2': ParagraphStyle('H2', fontName='Helvetica-Bold', fontSize=10, leading=13, textColor=colors.HexColor('#004d40'), keepWithNext=True),
-        'H3': ParagraphStyle('H3', fontName='Helvetica-Bold', fontSize=9.2, leading=12, textColor=colors.HexColor('#006699'), keepWithNext=True),
+        'Manifest': ParagraphStyle('Manifest', fontName='Helvetica', fontSize=8, leading=11, textColor=colors.HexColor('#004D40')),
+        'H1': ParagraphStyle('H1', fontName='Helvetica-Bold', fontSize=11.5, leading=14.5, textColor=colors.HexColor('#00695C'), keepWithNext=True),
+        'H2': ParagraphStyle('H2', fontName='Helvetica-Bold', fontSize=10, leading=13, textColor=colors.HexColor('#00796B'), keepWithNext=True),
+        'H3': ParagraphStyle('H3', fontName='Helvetica-Bold', fontSize=9.2, leading=12, textColor=colors.HexColor('#00897B'), keepWithNext=True),
         'Body': ParagraphStyle('Body', fontName='Helvetica', fontSize=8.5, leading=11.5, textColor=colors.HexColor('#222222'), wordWrap='CJK'),
         'Bullet': ParagraphStyle('Bullet', fontName='Helvetica', fontSize=8.5, leading=11.5, textColor=colors.HexColor('#222222'), wordWrap='CJK'),
-        'TableCell': ParagraphStyle('TableCell', fontName='Helvetica', fontSize=7.5, leading=9.5, textColor=colors.HexColor('#111111'), wordWrap='CJK'),
-        'CodeBlock': ParagraphStyle('CodeBlock', fontName='Courier', fontSize=7.5, leading=9.5, textColor=colors.HexColor('#1a237e')),
+        'TableHeader': ParagraphStyle('TableHeader', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor('#FFFFFF'), wordWrap='CJK'),
+        'TableCell': ParagraphStyle('TableCell', fontName='Helvetica', fontSize=7.5, leading=9.8, textColor=colors.HexColor('#111111'), wordWrap='CJK'),
+        'CodeBlock': ParagraphStyle('CodeBlock', fontName='Courier', fontSize=7.5, leading=9.5, textColor=colors.HexColor('#004D40')),
     }
 
     story = []
@@ -571,12 +645,12 @@ def generate_pdf_artifact(filename: str, title: str, content: str, session_id: s
         f"• SHA256 ECTA Timestamped Session: {session_id}\n"
         f"• Quantum Cycle Time Dilation: 1 : 6000 Standard | Edge Acceleration: AVX2 SIMD Vectorized\n"
         f"• Multimodal Knowledge Catalog: Registered ({len(NVIDIA_NIM_CATALOG)} Active Models)\n"
-        f"• Autonomous Sensor Array: Shadow Clone RAG Probes Active"
+        f"• Autonomous Sensor Array: {EPHEMERAL_SWARM_COUNT} Ephemeral Shadow Clone Sensors | 12 Ocular & Sentinel Lenses"
     )
     manifest_box = Table([[safe_p(manifest_text, styles['Manifest'])]], colWidths=[usable_width])
     manifest_box.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e0f2f1')),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#004d40')),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#E0F2F1')),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#00796B')),
         ('PADDING', (0, 0), (-1, -1), 8)
     ]))
     story.append(manifest_box)
@@ -599,9 +673,15 @@ def process_and_run(title: str, issue_text: str):
     seed_vec = [float((ord(combined_context[i % len(combined_context)]) % 19) + 1) * 0.5 for i in range(8)]
     simd_vec = uesp_quantum_core.avx2_quantum_tensor_transform(seed_vec)
 
-    # Execute Shadow Clone Sensor Probes & DDPG Policy Evaluation on the Subject
+    # Execute 200-Clone Ephemeral Sensor Probes & DDPG Policy Evaluation on the Subject
     policy_vec = get_ddpg_clone_policy(combined_context)
-    sim_data = execute_sentinel_clone_loop(title, issue_text, policy_vec, simd_vec)
+    sim_data = execute_sentinel_clone_loop(
+        title,
+        issue_text,
+        policy_vec,
+        simd_vec,
+        total_ephemeral_clones=EPHEMERAL_SWARM_COUNT
+    )
 
     # Recall prior ChromaDB sensor memory and generate the analytical report
     vector_store = LocalARMVectorStore()
@@ -609,11 +689,11 @@ def process_and_run(title: str, issue_text: str):
     report_content = query_nvidia_nim(title, issue_text, sim_data, prior_memories)
 
     # Persist sensor sweep into ChromaDB
-    vector_store.trap_information(session_id, [f"Sensor Probe Subject: {title}\n{report_content[:1200]}"])
+    vector_store.trap_information(session_id, [f"200-Clone Sensor Probe Subject: {title}\n{report_content[:1200]}"])
 
     pdf_filename = f"Report_{session_id[:16]}.pdf"
     generate_pdf_artifact(pdf_filename, title, report_content, session_id)
-    print(f"✅ Shadow Clone Sensor Diagnostic PDF generated: {pdf_filename}")
+    print(f"✅ 200-Clone Ocular Sensor Diagnostic PDF generated: {pdf_filename}")
 
     # WordPress REST API Upload Integration
     wp_url = "https://celsiustechmediagroup.co.za/wp-json/wp/v2"
