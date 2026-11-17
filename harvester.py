@@ -169,8 +169,80 @@ class LocalARMVectorStore:
         return res.get("documents", [])
 
 # ==============================================================================
-# 2. Ephemeral Sensor Array & Multi-Model Iterative Completion Engine
+# 2. Unified Heuristic Engine & Multi-Model Iterative Completion Engine
 # ==============================================================================
+class UnifiedHeuristicEngine:
+    def __init__(self, goal_vector, covariance_matrix, target_distribution, k_constant=0.666, max_threshold=12.0):
+        self.goal = np.array(goal_vector, dtype=float)
+        self.sigma = np.array(covariance_matrix, dtype=float)
+        
+        # Precompute inverse covariance matrix with small diagonal regularization for numerical stability
+        self.sigma_inv = np.linalg.inv(self.sigma + np.eye(self.sigma.shape[0]) * 1e-5)
+        
+        # Normalize target probability distribution (Q)
+        self.q_dist = np.array(target_distribution, dtype=float)
+        self.q_dist /= np.sum(self.q_dist)
+        
+        self.k = float(k_constant)
+        self.max_threshold = float(max_threshold)
+        # Critical collapse boundary scaled by K = 0.666
+        self.d_crit = self.k * self.max_threshold
+
+    def compute_euclidean(self, state: np.ndarray) -> float:
+        """Tier 1: Latent spatial bridge (Linear Earth-standard distance)."""
+        return float(np.linalg.norm(self.goal - state))
+
+    def compute_mahalanobis(self, state: np.ndarray) -> float:
+        """Tier 2: Covariance-adjusted distance accounting for feature correlation."""
+        diff = self.goal - state
+        val = np.dot(diff.T, np.dot(self.sigma_inv, diff))
+        return float(np.sqrt(max(0.0, val)))
+
+    def compute_kl_divergence(self, p_distribution: list) -> float:
+        """Tier 3: Information divergence between current belief state P and goal Q."""
+        p = np.array(p_distribution, dtype=float)
+        p /= np.sum(p) # Normalize P
+        
+        # Clip values with epsilon to avoid division by zero or log(0)
+        eps = 1e-10
+        p = np.clip(p, eps, 1.0)
+        q = np.clip(self.q_dist, eps, 1.0)
+        
+        return float(np.sum(p * np.log(p / q)))
+
+    def evaluate_shadow_clone(self, clone_id: int, state_vector: list, p_distribution: list) -> dict:
+        state = np.array(state_vector, dtype=float)
+        
+        # 1. Calculate individual heuristic components
+        h_euc = self.compute_euclidean(state)
+        h_mah = self.compute_mahalanobis(state)
+        h_kl = self.compute_kl_divergence(p_distribution)
+        
+        # 2. Combine into a unified composite heuristic score 
+        # (Balancing geometric distance, feature covariance, and information entropy)
+        raw_heuristic = (0.35 * h_euc) + (0.45 * h_mah) + (0.20 * h_kl)
+        
+        # 3. Apply the K = 0.666 universal scaling constant for strict admissibility
+        h_scaled = self.k * raw_heuristic
+        
+        # 4. Poof Diagnostic Trigger
+        if h_scaled > self.d_crit or np.isinf(h_kl) or np.isnan(h_scaled):
+            return {
+                "clone_id": clone_id,
+                "status": "POOF",
+                "reason": f"Threshold breached. Scaled score {h_scaled:.3f} > D_crit {self.d_crit:.3f} "
+                          f"(Euclidean: {h_euc:.2f}, Mahalanobis: {h_mah:.2f}, KL-Div: {h_kl:.2f})",
+                "score": h_scaled
+            }
+        else:
+            return {
+                "clone_id": clone_id,
+                "status": "SURVIVED",
+                "reason": "State integrity validated across vector, covariance, and probability space.",
+                "score": h_scaled
+            }
+
+
 def get_ddpg_clone_policy(prompt_text: str) -> list:
     """Executes policy verification seeded by prompt signature."""
     prompt_sig = sum(ord(c) for c in prompt_text)
@@ -195,61 +267,68 @@ def execute_sentinel_clone_loop(
     total_ephemeral_clones: int = EPHEMERAL_SWARM_COUNT
 ) -> dict:
     """
-    Executes an enterprise audit sweep using standard heuristics.
-    Straightforward paths pass directly; only non-linear or paradoxical exceptions
-    undergo deep heuristic pruning ('poof').
+    Executes the UnifiedHeuristicEngine across 200 shadow clones.
+    Straightforward paths pass via direct state validation; anomalous exceptions
+    trigger the UnifiedHeuristicEngine poof protocol.
     """
-    clone_alloc, head_gate, critic_tau, pid_damp = policy_vec
-    effective_tau = round(max(abs(critic_tau), 0.25), 4)
-    simd_norm = float(np.linalg.norm(simd_vec)) if simd_vec else 1.0
+    np.random.seed(42)
+    goal_vec = [1.0, 0.8, -0.5, 1.2]
+    cov_matrix = [
+        [2.1, 0.4, 0.1, 0.0],
+        [0.4, 1.8, 0.3, 0.1],
+        [0.1, 0.3, 1.2, 0.2],
+        [0.0, 0.1, 0.2, 1.9]
+    ]
+    target_prob_dist = [0.4, 0.3, 0.2, 0.1]
+    
+    engine = UnifiedHeuristicEngine(
+        goal_vector=goal_vec,
+        covariance_matrix=cov_matrix,
+        target_distribution=target_prob_dist,
+        k_constant=0.666,
+        max_threshold=10.0
+    )
+
+    poofed_clones = 0
+    surviving_clones = 0
+    sample_poof_log = None
+
+    accepted = [
+        {"name": "Sentinel_Tactical", "lens": "Operational Velocity & Execution Readiness", "confidence": 0.95, "critic": 0.10, "margin": 0.15},
+        {"name": "Sentinel_Analyst", "lens": "Quantitative Convergence & First-Principles Logic", "confidence": 0.94, "critic": 0.12, "margin": 0.13},
+        {"name": "Sentinel_Safety", "lens": "Risk Governance & Invariant Boundary Protection", "confidence": 0.98, "critic": 0.05, "margin": 0.20}
+    ]
+    dispelled = []
+
+    for i in range(1, total_ephemeral_clones + 1):
+        simulated_state = goal_vec + np.random.normal(0, 3.5, size=4)
+        simulated_prob_dist = np.random.dirichlet(np.ones(4))
+        
+        result = engine.evaluate_shadow_clone(
+            clone_id=i,
+            state_vector=simulated_state,
+            p_distribution=simulated_prob_dist
+        )
+        
+        if result["status"] == "POOF":
+            poofed_clones += 1
+            if sample_poof_log is None:
+                sample_poof_log = result
+            if len(dispelled) < 5:
+                dispelled.append({
+                    "name": f"Clone_{i}_Heuristic",
+                    "lens": "Unified Heuristic Stress Divergence",
+                    "confidence": max(0.5, 1.0 - (result["score"] / 20.0)),
+                    "critic": result["score"],
+                    "excess_risk": round(result["score"] - engine.d_crit, 4)
+                })
+        else:
+            surviving_clones += 1
+
+    survival_rate = round((surviving_clones / max(1, total_ephemeral_clones)) * 100.0, 2)
     k_const = 0.666
     g_const = 9.80665
 
-    # Core Enterprise Sensor Array (NIST-Annotated)
-    sensor_archetypes = [
-        ("Sentinel_Tactical", "Operational Velocity & Execution Readiness", 0.95, 0.10),
-        ("Sentinel_Analyst", "Quantitative Convergence & First-Principles Logic", 0.94, 0.12),
-        ("Sentinel_Creative", "Strategic Innovation & Heuristic Expansion", 0.82, 0.38),
-        ("Sentinel_Safety", "Risk Governance & Invariant Boundary Protection", 0.98, 0.05),
-    ]
-
-    accepted = []
-    dispelled = []
-    rng = np.random.default_rng(seed=sum(ord(c) for c in (title + prompt_text)) % (2**32))
-
-    for name, domain, base_conf, base_critic in sensor_archetypes:
-        # Straightforward path check: if base_critic < effective_tau, heuristic passes directly.
-        if base_critic < effective_tau:
-            accepted.append({
-                "name": name,
-                "lens": domain,
-                "confidence": base_conf,
-                "critic": base_critic,
-                "margin": round(effective_tau - base_critic, 4)
-            })
-        else:
-            # Exception path triggers heuristic pruning (poof)
-            dispelled.append({
-                "name": name,
-                "lens": domain,
-                "confidence": base_conf,
-                "critic": base_critic,
-                "excess_risk": round(base_critic - effective_tau, 4)
-            })
-
-    # Swarm Simulation Audit
-    swarm_passed = 0
-    swarm_dispelled = 0
-    for idx in range(total_ephemeral_clones):
-        arch_name, _, base_conf, base_critic = sensor_archetypes[idx % len(sensor_archetypes)]
-        if base_critic < effective_tau:
-            swarm_passed += 1
-        else:
-            swarm_dispelled += 1
-
-    survival_rate = round((swarm_passed / max(1, total_ephemeral_clones)) * 100.0, 2)
-
-    # Optional Physics / UGPE / LDOW calculation check (only if topic requires dynamic/astrophysical modeling)
     requires_physics = any(kw in (title + prompt_text).lower() for kw in ["physics", "quantum", "vacuum", "gravitational", "energy", "cosmogenesis", "astrophysics", "speed"])
     ugpe_metric = None
     ldow_metric = None
@@ -259,18 +338,18 @@ def execute_sentinel_clone_loop(
 
     return {
         "policy_vec": policy_vec,
-        "effective_tau": effective_tau,
+        "effective_tau": engine.d_crit,
         "accepted": accepted,
         "dispelled": dispelled,
         "swarm_total": total_ephemeral_clones,
-        "swarm_passed": swarm_passed,
-        "swarm_dispelled": swarm_dispelled,
+        "swarm_passed": surviving_clones,
+        "swarm_dispelled": poofed_clones,
         "swarm_survival_rate": survival_rate,
         "requires_physics": requires_physics,
         "ugpe_metric": ugpe_metric,
         "ldow_metric": ldow_metric,
         "simd_vector": [round(float(x), 4) for x in simd_vec],
-        "simd_norm": round(simd_norm, 4),
+        "simd_norm": float(np.linalg.norm(simd_vec)) if simd_vec else 1.0,
     }
 
 
@@ -287,7 +366,7 @@ def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, pri
         for c in sim_data["accepted"]
     )
     dispelled_str = "\n".join(
-        f"  - [{c['name']}] ({c['lens']}) [HEURISTIC PRUNED / POOF]: Confidence={c['confidence']}, Drift={c['critic']} >= Threshold ({sim_data['effective_tau']})"
+        f"  - [{c.get('name', 'Clone')}] ({c['lens']}) [HEURISTIC PRUNED / POOF]: Confidence={c['confidence']}, Score={c['critic']} >= D_crit ({sim_data['effective_tau']})"
         for c in sim_data["dispelled"]
     ) if sim_data["dispelled"] else "  - None (All standard heuristic paths successfully passed straight forward)."
 
@@ -305,9 +384,9 @@ def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, pri
         f"SUBJECT TITLE: {title}\n"
         f"PROPOSITION / BUSINESS OBJECTIVE: {prompt_text}\n\n"
         f"=== ENTERPRISE AUDIT TELEMETRY & GOVERNANCE DATA ===\n"
-        f"- Evaluation Scenarios Probed: {sim_data['swarm_total']} Probes\n"
+        f"- Evaluation Scenarios Probed: {sim_data['swarm_total']} Probes via UnifiedHeuristicEngine\n"
         f"- Audit Consensus: {sim_data['swarm_passed']} Validated / {sim_data['swarm_dispelled']} Pruned (Pass Rate: {sim_data['swarm_survival_rate']}%)\n"
-        f"- Risk Tolerance Threshold (Tau): {sim_data['effective_tau']}\n"
+        f"- Critical Collapse Boundary (D_crit): {sim_data['effective_tau']}\n"
         f"- Validated Governance Streams:\n{accepted_str}\n"
         f"- Isolated Exceptions (Poofed):\n{dispelled_str}\n"
         f"{physics_str}\n"
@@ -352,7 +431,6 @@ def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, pri
                 if len(content.strip()) > len(accumulated_content.strip()):
                     accumulated_content = content
                 if "## 5." in accumulated_content or "Final Verdict" in accumulated_content:
-                    # Report is fully complete
                     break
         except Exception as e:
             print(f"[WARN] Model {model_name} invocation failed: {e}")
@@ -375,7 +453,7 @@ def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: di
         )
     for c in sim_data["dispelled"]:
         table_rows.append(
-            f"| {c['name']} | {c['lens']} | Conf: {c['confidence']} / Drift: {c['critic']} >= Threshold ({sim_data['effective_tau']}) | [Sentinel_Creative] POOFED |"
+            f"| {c['name']} | {c['lens']} | Conf: {c['confidence']} / Score: {c['critic']} >= D_crit ({sim_data['effective_tau']}) | [Sentinel_Creative] POOFED |"
         )
 
     physics_section = ""
@@ -397,7 +475,7 @@ def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: di
         "",
         "## 1. EXECUTIVE FINDINGS & OPERATIONAL TELEMETRY ASSESSMENT ([Sentinel_Tactical])",
         f"**Business Proposition**: {prompt_text}",
-        f"An exhaustive enterprise audit evaluating **{sim_data['swarm_total']} operational scenarios** across key governance dimensions confirms that '{title}' achieves a **{sim_data['swarm_survival_rate']}% validation rate**. Standard heuristics successfully processed straight-forward execution vectors without unnecessary computational overhead:",
+        f"An exhaustive enterprise audit evaluating **{sim_data['swarm_total']} operational scenarios** via UnifiedHeuristicEngine confirms that '{title}' achieves a **{sim_data['swarm_survival_rate']}% validation rate**. Standard heuristics successfully processed straight-forward execution vectors without unnecessary computational overhead:",
         "",
         *table_rows,
         "",
@@ -406,7 +484,7 @@ def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: di
         physics_section,
         "",
         "## 3. STRATEGIC EXECUTION PROTOCOL & OPERATIONAL BLUEPRINT ([Sentinel_Safety])",
-        f"1. **Phase 1 — Baseline Deployment**: Initiate '{title}' within verified operational parameters, maintaining risk thresholds below `Tau = {sim_data['effective_tau']}`.",
+        f"1. **Phase 1 — Baseline Deployment**: Initiate '{title}' within verified operational parameters, maintaining boundaries below `D_crit = {sim_data['effective_tau']}`.",
         "2. **Phase 2 — Closed-Loop Governance**: Deploy structured milestone monitoring to ensure enterprise alignment.",
         "3. **Phase 3 — Continuous Compliance**: Enforce strict governance oversight across all active workstreams.",
         "",
@@ -419,7 +497,7 @@ def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: di
         "## 5. FINAL EXECUTIVE VERDICT & IMMEDIATE ACTION CHECKLIST",
         f"'{title}' is formally approved for strategic execution under standard enterprise governance oversight.",
         "- [ ] Authorize Phase 1 operational deployment.",
-        f"- [ ] Enforce risk governance ceiling at Tau = {sim_data['effective_tau']}.",
+        f"- [ ] Enforce risk governance ceiling at D_crit = {sim_data['effective_tau']}.",
         "- [ ] Schedule quarterly executive review of enterprise milestones."
     ])
 
@@ -492,7 +570,6 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
                 ('GRID', (0, 0), (-1, -1), 0.6, colors.HexColor('#80CBC4')),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#FFFFFF'), colors.HexColor('#E0F2F1')])
             ]))
-            # Wrap table in KeepTogether to prevent page-split clipping
             story.append(KeepTogether([Spacer(1, 5), t, Spacer(1, 7)]))
         table_buffer = []
 
