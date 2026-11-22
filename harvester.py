@@ -38,6 +38,17 @@ SECONDARY_NIM_MODEL = os.getenv("SECONDARY_NIM_MODEL", "meta/llama-3.3-70b-instr
 TERTIARY_COMPLETION_MODEL = os.getenv("TERTIARY_COMPLETION_MODEL", "openai/gpt-oss-20b")
 QUATERNARY_SYNTHESIS_MODEL = os.getenv("QUATERNARY_SYNTHESIS_MODEL", "google/gemma-4-31b-it")
 
+# Optional Extended Cascade Models (Tiers 5-9 via env vars)
+EXTRA_CASCADE_MODELS = [
+    m for m in [
+        os.getenv("QUINARY_NIM_MODEL"),
+        os.getenv("SENARY_NIM_MODEL"),
+        os.getenv("SEPTENARY_NIM_MODEL"),
+        os.getenv("OCTONARY_NIM_MODEL"),
+        os.getenv("NONARY_NIM_MODEL"),
+    ] if m
+]
+
 # Ephemeral Swarm Scale for Enterprise Audit
 EPHEMERAL_SWARM_COUNT = 200
 
@@ -45,7 +56,6 @@ EPHEMERAL_SWARM_COUNT = 200
 # Comprehensive NVIDIA NIM Model Registry (48 Active Models)
 # ==============================================================================
 NVIDIA_NIM_CATALOG = {
-    # Speech, ASR & Audio
     "parakeet_1.1b_rnnt": "nvidia/parakeet-1.1b-rnnt-multilingual-asr",
     "parakeet_tdt_0.6b": "nvidia/parakeet-tdt-0.6b-v2",
     "parakeet_ctc_zh_tw": "nvidia/parakeet-ctc-0.6b-zh-tw",
@@ -57,8 +67,6 @@ NVIDIA_NIM_CATALOG = {
     "magpie_tts_multilingual": "nvidia/magpie-tts-multilingual",
     "nemotron_voicechat": "nvidia/nemotron-voicechat",
     "background_noise_removal": "nvidia/background-noise-removal",
-
-    # Language, Reasoning & Biology
     "gpt_oss_20b": "openai/gpt-oss-20b",
     "gemma_4_31b_it": "google/gemma-4-31b-it",
     "nemotron_3_super_120b": "nvidia/nemotron-3-super-120b-a12b",
@@ -69,8 +77,6 @@ NVIDIA_NIM_CATALOG = {
     "boltz_2": "mit/boltz-2",
     "evo2_40b_forward": "arc/evo2-40b-forward",
     "evo2_7b_forward": "arc/evo2-7b-forward",
-
-    # OCR, Vision, RAG & Document Intelligence
     "nemotron_parse": "nvidia/nemotron-parse",
     "nemotron_ocr_v1": "nvidia/nemotron-ocr-v1",
     "nemotron_table_structure": "nvidia/nemotron-table-structure-v1",
@@ -78,9 +84,7 @@ NVIDIA_NIM_CATALOG = {
     "nemotron_graphic_elements": "nvidia/nemotron-graphic-elements-v1",
     "nemoretriever_ocr": "nvidia/nemoretriever-ocr",
     "llama_nemotron_embed_vl": "nvidia/llama-nemotron-embed-vl-1b-v2",
-    "llama_nemotron_rerank_vl": "nvidia/llama-nemotron-rerank-vl-1b-v2",
-
-    # Generative AI, 3D Assets & Media Synthesis
+    "llama_nemotron_rerank_vl": "nvidia/llama-3.1-nemotron-rerank-vl-1b-v2",
     "flux_1_schnell": "black-forest-labs/flux.1-schnell",
     "flux_1_dev": "black-forest-labs/flux.1-dev",
     "flux_1_kontext_dev": "black-forest-labs/flux.1-kontext-dev",
@@ -89,8 +93,6 @@ NVIDIA_NIM_CATALOG = {
     "qwen_image_edit": "qwen/qwen-image-edit",
     "trellis_3d": "microsoft/trellis",
     "stable_diffusion_3.5_large": "stabilityai/stable-diffusion-3.5-large",
-
-    # Spatial AI, Perception & Video Dynamics
     "sparsedrive": "nvidia/sparsedrive",
     "bevformer": "nvidia/bevformer",
     "streampetr": "nvidia/streampetr",
@@ -99,8 +101,6 @@ NVIDIA_NIM_CATALOG = {
     "synthetic_video_detector": "nvidia/synthetic-video-detector",
     "active_speaker_detection": "nvidia/active-speaker-detection",
     "lipsync": "nvidia/lipsync",
-
-    # Quantum & Safety Controls
     "ising_calibration": "nvidia/ising-calibration-1-35b-a3b",
     "llama_guard_4_12b": "meta/llama-guard-4-12b",
     "llama_3.1_nemotron_safety_guard": "nvidia/llama-3.1-nemotron-safety-guard-8b-v3"
@@ -138,9 +138,10 @@ MANDATORY CORPORATE REPORT STRUCTURE:
 5. **Section 4: Risk Mitigation & Success Criteria Matrix ([Sentinel_Creative])**:
    - Comprehensive risk assessment and a Markdown success criteria table (`| Strategic Metric | Target Threshold | Verification Methodology |`).
 6. **Section 5: Final Executive Verdict & Immediate Action Checklist**:
-   - Conclude with a formal executive ruling and an actionable `[ ]` governance checklist.
+   - Conclude with a formal executive ruling and a complete, untruncated `[ ]` governance checklist (at least 4 full checklist items).
 
 STRICT FORMATTING RULES:
+- Never cut off tables or checklists mid-line. Always complete every table row and every checklist item cleanly.
 - Use clean Markdown headers (`#`, `##`, `###`), Markdown tables (`| col | col |`), fenced code blocks (` ``` `), and standard lists (`-` or `1.`).
 - Keep code blocks concise and split long lines/tokens cleanly so layout engines never overflow a single page.
 - Use PLAIN TEXT ONLY for all equations, variables, and code (e.g., `Tau = 0.25`, `Delta_E / Delta_t`).
@@ -183,56 +184,37 @@ class UnifiedHeuristicEngine:
     def __init__(self, goal_vector, covariance_matrix, target_distribution, k_constant=0.666, max_threshold=12.0):
         self.goal = np.array(goal_vector, dtype=float)
         self.sigma = np.array(covariance_matrix, dtype=float)
-
-        # Precompute inverse covariance matrix with small diagonal regularization for numerical stability
         self.sigma_inv = np.linalg.inv(self.sigma + np.eye(self.sigma.shape[0]) * 1e-5)
-
-        # Normalize target probability distribution (Q)
         self.q_dist = np.array(target_distribution, dtype=float)
         self.q_dist /= np.sum(self.q_dist)
-
         self.k = float(k_constant)
         self.max_threshold = float(max_threshold)
-        # Critical collapse boundary scaled by K = 0.666
         self.d_crit = self.k * self.max_threshold
 
     def compute_euclidean(self, state: np.ndarray) -> float:
-        """Tier 1: Latent spatial bridge (Linear Earth-standard distance)."""
         return float(np.linalg.norm(self.goal - state))
 
     def compute_mahalanobis(self, state: np.ndarray) -> float:
-        """Tier 2: Covariance-adjusted distance accounting for feature correlation."""
         diff = self.goal - state
         val = np.dot(diff.T, np.dot(self.sigma_inv, diff))
         return float(np.sqrt(max(0.0, val)))
 
     def compute_kl_divergence(self, p_distribution: list) -> float:
-        """Tier 3: Information divergence between current belief state P and goal Q."""
         p = np.array(p_distribution, dtype=float)
-        p /= np.sum(p)  # Normalize P
-
-        # Clip values with epsilon to avoid division by zero or log(0)
+        p /= np.sum(p)
         eps = 1e-10
         p = np.clip(p, eps, 1.0)
         q = np.clip(self.q_dist, eps, 1.0)
-
         return float(np.sum(p * np.log(p / q)))
 
     def evaluate_shadow_clone(self, clone_id: int, state_vector: list, p_distribution: list) -> dict:
         state = np.array(state_vector, dtype=float)
-
-        # 1. Calculate individual heuristic components
         h_euc = self.compute_euclidean(state)
         h_mah = self.compute_mahalanobis(state)
         h_kl = self.compute_kl_divergence(p_distribution)
-
-        # 2. Combine into a unified composite heuristic score
         raw_heuristic = (0.35 * h_euc) + (0.45 * h_mah) + (0.20 * h_kl)
-
-        # 3. Apply the K = 0.666 universal scaling constant for strict admissibility
         h_scaled = self.k * raw_heuristic
 
-        # 4. Poof Diagnostic Trigger
         if h_scaled > self.d_crit or np.isinf(h_kl) or np.isnan(h_scaled):
             return {
                 "clone_id": clone_id,
@@ -241,17 +223,15 @@ class UnifiedHeuristicEngine:
                           f"(Euclidean: {h_euc:.2f}, Mahalanobis: {h_mah:.2f}, KL-Div: {h_kl:.2f})",
                 "score": h_scaled
             }
-        else:
-            return {
-                "clone_id": clone_id,
-                "status": "SURVIVED",
-                "reason": "State integrity validated across vector, covariance, and probability space.",
-                "score": h_scaled
-            }
+        return {
+            "clone_id": clone_id,
+            "status": "SURVIVED",
+            "reason": "State integrity validated across vector, covariance, and probability space.",
+            "score": h_scaled
+        }
 
 
 def get_ddpg_clone_policy(prompt_text: str) -> list:
-    """Executes policy verification seeded by prompt signature."""
     prompt_sig = sum(ord(c) for c in prompt_text)
     if os.path.exists(ONNX_MODEL_PATH):
         try:
@@ -273,11 +253,6 @@ def execute_sentinel_clone_loop(
     simd_vec: list,
     total_ephemeral_clones: int = EPHEMERAL_SWARM_COUNT
 ) -> dict:
-    """
-    Executes the UnifiedHeuristicEngine across 200 shadow clones.
-    Straightforward paths pass via direct state validation; anomalous exceptions
-    trigger the UnifiedHeuristicEngine poof protocol.
-    """
     np.random.seed(42)
     goal_vec = [1.0, 0.8, -0.5, 1.2]
     cov_matrix = [
@@ -298,7 +273,6 @@ def execute_sentinel_clone_loop(
 
     poofed_clones = 0
     surviving_clones = 0
-    sample_poof_log = None
 
     accepted = [
         {"name": "Sentinel_Tactical", "lens": "Operational Velocity & Execution Readiness", "confidence": 0.95, "critic": 0.10, "margin": 0.15},
@@ -319,13 +293,11 @@ def execute_sentinel_clone_loop(
 
         if result["status"] == "POOF":
             poofed_clones += 1
-            if sample_poof_log is None:
-                sample_poof_log = result
             if len(dispelled) < 5:
                 dispelled.append({
                     "name": f"Clone_{i}_Heuristic",
                     "lens": "Unified Heuristic Stress Divergence",
-                    "confidence": max(0.5, 1.0 - (result["score"] / 20.0)),
+                    "confidence": round(max(0.5, 1.0 - (result["score"] / 20.0)), 4),
                     "critic": round(float(result["score"]), 4),
                     "excess_risk": round(float(result["score"] - engine.d_crit), 4)
                 })
@@ -336,12 +308,12 @@ def execute_sentinel_clone_loop(
     k_const = 0.666
     g_const = 9.80665
 
-    requires_physics = any(kw in (title + prompt_text).lower() for kw in ["physics", "quantum", "vacuum", "gravitational", "energy", "cosmogenesis", "astrophysics", "speed"])
-    ugpe_metric = None
-    ldow_metric = None
-    if requires_physics:
-        ugpe_metric = round(k_const * g_const * (len(prompt_text) % 10 + 1), 4)
-        ldow_metric = round((g_const / k_const) * 0.1, 4)
+    requires_physics = any(
+        kw in (title + prompt_text).lower()
+        for kw in ["physics", "quantum", "vacuum", "gravitational", "energy", "cosmogenesis", "astrophysics", "speed"]
+    )
+    ugpe_metric = round(k_const * g_const * (len(prompt_text) % 10 + 1), 4) if requires_physics else None
+    ldow_metric = round((g_const / k_const) * 0.1, 4) if requires_physics else None
 
     return {
         "policy_vec": policy_vec,
@@ -360,11 +332,41 @@ def execute_sentinel_clone_loop(
     }
 
 
+def _is_report_complete(text: str) -> bool:
+    if not text or not text.strip():
+        return False
+    has_sec5 = ("## 5." in text) or ("final executive verdict" in text.lower()) or ("final verdict" in text.lower())
+    lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+    last_line = lines[-1] if lines else ""
+    looks_truncated_table = last_line.startswith("|") and not last_line.endswith("|")
+    looks_truncated_checklist = ("- [" in last_line) and len(last_line) < 18
+    return has_sec5 and not looks_truncated_table and not looks_truncated_checklist
+
+
+def _stitch_without_overlap(existing: str, incoming: str) -> str:
+    """Appends incoming continuation while trimming overlapping prefix lines."""
+    if not existing:
+        return incoming.strip()
+    if not incoming or incoming.strip() in existing:
+        return existing
+
+    existing_lines = existing.splitlines()
+    incoming_lines = incoming.strip().splitlines()
+    max_overlap = min(len(existing_lines), len(incoming_lines), 12)
+    overlap_len = 0
+
+    for k in range(max_overlap, 0, -1):
+        if [x.strip() for x in existing_lines[-k:]] == [x.strip() for x in incoming_lines[:k]]:
+            overlap_len = k
+            break
+
+    trimmed_incoming = "\n".join(incoming_lines[overlap_len:]).strip()
+    if not trimmed_incoming:
+        return existing
+    return f"{existing.rstrip()}\n\n{trimmed_incoming}"
+
+
 def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, prior_memories: list) -> str:
-    """
-    Multi-model iterative completion engine: Ensures output is never cut short or incomplete.
-    Cascades through Primary, Secondary, Tertiary, and Quaternary models to build a complete report.
-    """
     endpoint = os.getenv("NVIDIA_ENDPOINT", NVIDIA_ENDPOINT)
     api_key = os.getenv("NVIDIA_API_KEY", NVIDIA_KEY)
 
@@ -397,14 +399,16 @@ def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, pri
         f"- Validated Governance Streams:\n{accepted_str}\n"
         f"- Isolated Exceptions (Poofed):\n{dispelled_str}\n"
         f"{physics_str}\n"
-        f"INSTRUCTION: Deliver a comprehensive, rigorous corporate governance and feasibility audit report for '{title}' and '{prompt_text}'. Ensure exhaustive completeness so that all sections (Executive Findings, First-Principles Mechanics/Cosmogenesis, Execution Protocol, Risk Matrix, and Final Verdict) are fully fleshed out with professional corporate language and NIST sensor annotations in brackets. Do not output raw LaTeX '$' or '\\' characters."
+        f"INSTRUCTION: Deliver a complete, untruncated corporate governance and feasibility audit report for '{title}' and '{prompt_text}'. "
+        f"Finish every table row and every '- [ ]' checklist item in Section 5 completely. Use NIST sensor annotations in brackets. Do not output raw LaTeX '$' or '\\' characters."
     )
 
     models_to_cascade = [
         PRIMARY_NIM_MODEL,
         SECONDARY_NIM_MODEL,
         TERTIARY_COMPLETION_MODEL,
-        QUATERNARY_SYNTHESIS_MODEL
+        QUATERNARY_SYNTHESIS_MODEL,
+        *EXTRA_CASCADE_MODELS,
     ]
 
     headers = {
@@ -423,33 +427,50 @@ def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, pri
             break
         print(f"🚀 Invoking Enterprise Model [{model_name}] for comprehensive report generation...")
         try:
+            continuation_instruction = (
+                f"\n\nEXISTING DRAFT (DO NOT REPEAT ALREADY COMPLETED SECTIONS OR TRUNCATE TABLES/CHECKLISTS; CONTINUE CLEANLY FROM WHERE IT LEFT OFF):\n{accumulated_content[-3500:]}"
+                if accumulated_content else ""
+            )
             payload = {
                 "model": model_name,
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": base_user_prompt + (f"\n\nPREVIOUS GENERATION SEGMENT:\n{accumulated_content}" if accumulated_content else "")}
+                    {"role": "user", "content": base_user_prompt + continuation_instruction}
                 ],
                 "temperature": 0.25,
                 "max_tokens": 4096
             }
             response = session.post(endpoint, headers=headers, json=payload, timeout=(10, 180))
             if response.status_code == 200:
-                content = response.json()["choices"][0]["message"]["content"]
-                if len(content.strip()) > len(accumulated_content.strip()):
+                content = response.json()["choices"][0]["message"]["content"].strip()
+                if not accumulated_content:
                     accumulated_content = content
-                if "## 5." in accumulated_content or "Final Verdict" in accumulated_content:
+                elif len(content) > len(accumulated_content) and ("# " in content and "## 1." in content):
+                    accumulated_content = content
+                else:
+                    accumulated_content = _stitch_without_overlap(accumulated_content, content)
+
+                if _is_report_complete(accumulated_content):
                     break
         except Exception as e:
             print(f"[WARN] Model {model_name} invocation failed: {e}")
 
     if not accumulated_content:
-        return generate_local_corporate_fallback(title, prompt_text, sim_data)
+        accumulated_content = generate_local_corporate_fallback(title, prompt_text, sim_data)
+
+    if "- [ ]" not in accumulated_content:
+        accumulated_content += (
+            "\n\n## 5. FINAL EXECUTIVE VERDICT & IMMEDIATE ACTION CHECKLIST\n"
+            f"- [ ] Confirm Phase 1 scope and governance guardrails for '{title}'.\n"
+            f"- [ ] Enforce risk threshold D_crit = {sim_data['effective_tau']} across active streams.\n"
+            "- [ ] Verify all summary tables and action items prior to release.\n"
+            "- [ ] Schedule post-deployment review and audit sign-off."
+        )
 
     return accumulated_content
 
 
 def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: dict) -> str:
-    """Offline robust corporate fallback ensuring zero data shortage."""
     table_rows = [
         "| Operational Dimension | Corporate Assessment Focus | Evaluated Metric & Confidence | Governance Status |",
         "| --- | --- | --- | --- |",
@@ -471,7 +492,6 @@ def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: di
             "- Earth Gravity Constant (g): 9.80665 m/s^2\n"
             f"- UGPE Evaluated Flux: {sim_data['ugpe_metric']}\n"
             f"- LDOW Overwrite Index: {sim_data['ldow_metric']}\n"
-            "The physical system parameters are governed strictly by known fundamental constants without arbitrary inflation.\n"
         )
 
     return "\n".join([
@@ -482,12 +502,12 @@ def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: di
         "",
         "## 1. EXECUTIVE FINDINGS & OPERATIONAL TELEMETRY ASSESSMENT ([Sentinel_Tactical])",
         f"**Business Proposition**: {prompt_text}",
-        f"An exhaustive enterprise audit evaluating **{sim_data['swarm_total']} operational scenarios** via UnifiedHeuristicEngine confirms that '{title}' achieves a **{sim_data['swarm_survival_rate']}% validation rate**. Standard heuristics successfully processed straight-forward execution vectors without unnecessary computational overhead:",
+        f"An exhaustive enterprise audit evaluating **{sim_data['swarm_total']} operational scenarios** via UnifiedHeuristicEngine confirms that '{title}' achieves a **{sim_data['swarm_survival_rate']}% validation rate**.",
         "",
         *table_rows,
         "",
         "## 2. FIRST-PRINCIPLES MECHANICS & COSMOGENESIS SYNTHESIS ([Sentinel_Analyst])",
-        "The Cosmogenesis construct establishes that structural order and operational viability emerge when redundant complexity is pruned in favor of direct execution pathways.",
+        "Structured execution and clear threshold boundaries keep operational risk controlled across evaluated scenarios.",
         physics_section,
         "",
         "## 3. STRATEGIC EXECUTION PROTOCOL & OPERATIONAL BLUEPRINT ([Sentinel_Safety])",
@@ -502,22 +522,23 @@ def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: di
         f"| Risk Threshold Adherence | < {sim_data['effective_tau']} | Continuous Governance Monitoring |",
         "",
         "## 5. FINAL EXECUTIVE VERDICT & IMMEDIATE ACTION CHECKLIST",
-        f"'{title}' is formally approved for strategic execution under standard enterprise governance oversight.",
+        f"'{title}' is approved for controlled execution under standard governance oversight.",
         "- [ ] Authorize Phase 1 operational deployment.",
         f"- [ ] Enforce risk governance ceiling at D_crit = {sim_data['effective_tau']}.",
-        "- [ ] Schedule quarterly executive review of enterprise milestones."
+        "- [ ] Verify full table and checklist completion in generated artifacts.",
+        "- [ ] Schedule executive review of milestones."
     ])
 
 # ==============================================================================
 # 3. HTML/CSS Renderer, TXT Builder, PDF Generator & ZIP Bundler
 # ==============================================================================
 def clean_raw_latex_artifacts(text: str) -> str:
-    """Removes stray LaTeX delimiters/macros so rendered outputs stay clean."""
     text = text.replace("$$", "")
     text = re.sub(r'\\(text|mathbf|mathbb|frac|approx|times|rightarrow|cdot|sigma|psi|tau|Delta)\b', '', text)
     text = re.sub(r'(?<!\\)\$', '', text)
     text = text.replace("\\{", "{").replace("\\}", "}")
     return text
+
 
 def _format_inline_html(text: str) -> str:
     cleaned = clean_raw_latex_artifacts(html.unescape(text))
@@ -534,11 +555,8 @@ def _format_inline_html(text: str) -> str:
         escaped = escaped.replace(f"__C_{i}__", f"<code>{html.escape(c)}</code>")
     return escaped
 
+
 def render_report_html(title: str, content: str, session_id: str, include_document_wrapper: bool = True) -> str:
-    """
-    Converts Markdown report content (including tables and code blocks) into clean HTML + CSS
-    for fast WordPress display and CSS-to-PDF conversion.
-    """
     lines = content.split("\n")
     body_parts = []
     table_lines = []
@@ -557,15 +575,14 @@ def render_report_html(title: str, content: str, session_id: str, include_docume
             if any(cols):
                 parsed_rows.append(cols)
         if parsed_rows:
-            html_rows = []
             headers = parsed_rows[0]
-            html_rows.append("<thead><tr>" + "".join(f"<th>{_format_inline_html(h)}</th>" for h in headers) + "</tr></thead>")
+            thead_html = "<thead><tr>" + "".join(f"<th>{_format_inline_html(h)}</th>" for h in headers) + "</tr></thead>"
             body_rows = []
             for r in parsed_rows[1:]:
                 padded = r + [""] * max(0, len(headers) - len(r))
                 body_rows.append("<tr>" + "".join(f"<td>{_format_inline_html(cell)}</td>" for cell in padded[:len(headers)]) + "</tr>")
-            html_rows.append("<tbody>" + "".join(body_rows) + "</tbody>")
-            body_parts.append("<table class='uesp-table'>" + "".join(html_rows) + "</table>")
+            tbody_html = "<tbody>" + "".join(body_rows) + "</tbody>"
+            body_parts.append("<table class='uesp-table'>" + thead_html + tbody_html + "</table>")
         table_lines = []
 
     def flush_html_code():
@@ -591,8 +608,9 @@ def render_report_html(title: str, content: str, session_id: str, include_docume
             code_lines.append(raw_line.rstrip("\r\n"))
             continue
 
-        if stripped.startswith("|") and stripped.endswith("|"):
-            table_lines.append(stripped)
+        if stripped.startswith("|"):
+            normalized_row = stripped if stripped.endswith("|") else f"{stripped} |"
+            table_lines.append(normalized_row)
             continue
         else:
             flush_html_table()
@@ -607,6 +625,11 @@ def render_report_html(title: str, content: str, session_id: str, include_docume
         elif stripped.startswith("### ") or stripped.startswith("#### "):
             h_txt = re.sub(r"^#+\s*", "", stripped).strip()
             body_parts.append(f"<h3>{_format_inline_html(h_txt)}</h3>")
+        elif stripped.startswith("- [ ]") or stripped.startswith("- [x]") or stripped.startswith("- [X]"):
+            checked = stripped.startswith("- [x]") or stripped.startswith("- [X]")
+            box_char = "☑" if checked else "☐"
+            item_text = stripped[5:].strip()
+            body_parts.append(f"<div class='uesp-check'>{box_char} {_format_inline_html(item_text)}</div>")
         elif stripped.startswith("- ") or stripped.startswith("* "):
             body_parts.append(f"<div class='uesp-bullet'>• {_format_inline_html(stripped[2:])}</div>")
         elif re.match(r"^\d+\.\s", stripped):
@@ -615,7 +638,8 @@ def render_report_html(title: str, content: str, session_id: str, include_docume
             body_parts.append(f"<p>{_format_inline_html(stripped)}</p>")
 
     flush_html_table()
-    flush_html_code()
+    if in_code:
+        flush_html_code()
 
     css_block = """
     <style>
@@ -623,12 +647,15 @@ def render_report_html(title: str, content: str, session_id: str, include_docume
       .uesp-header-bar { display: flex; justify-content: space-between; border-bottom: 2px solid #00796b; padding-bottom: 8px; margin-bottom: 12px; }
       .uesp-brand { font-size: 16px; font-weight: bold; color: #004d40; }
       .uesp-meta-box { background: #e0f2f1; border: 1px solid #00796b; padding: 10px 12px; border-radius: 4px; font-size: 12px; margin-bottom: 14px; color: #004d40; }
-      .uesp-report-wrap h1 { font-size: 20px; color: #004d40; margin: 14px 0 8px 0; }
-      .uesp-report-wrap h2 { font-size: 16px; color: #00695c; margin: 12px 0 6px 0; border-bottom: 1px solid #b2dfdb; padding-bottom: 3px; }
-      .uesp-report-wrap h3 { font-size: 14px; color: #00796b; margin: 10px 0 4px 0; }
+      .uesp-report-wrap h1 { font-size: 20px; color: #004d40; margin: 14px 0 8px 0; break-after: avoid; }
+      .uesp-report-wrap h2 { font-size: 16px; color: #00695c; margin: 12px 0 6px 0; border-bottom: 1px solid #b2dfdb; padding-bottom: 3px; break-after: avoid; }
+      .uesp-report-wrap h3 { font-size: 14px; color: #00796b; margin: 10px 0 4px 0; break-after: avoid; }
       .uesp-report-wrap p { margin: 5px 0; font-size: 13px; }
-      .uesp-bullet { margin: 4px 0 4px 14px; font-size: 13px; }
+      .uesp-bullet { margin: 4px 0 4px 14px; font-size: 13px; break-inside: avoid; }
+      .uesp-check { margin: 5px 0 5px 14px; font-size: 13px; break-inside: avoid; }
       .uesp-table { width: 100%; border-collapse: collapse; margin: 10px 0 14px 0; font-size: 12px; }
+      .uesp-table thead { display: table-header-group; }
+      .uesp-table tr { break-inside: avoid; }
       .uesp-table th { background: #00796b; color: #ffffff; text-align: left; padding: 7px 8px; border: 1px solid #004d40; }
       .uesp-table td { padding: 6px 8px; border: 1px solid #80cbc4; vertical-align: top; }
       .uesp-table tr:nth-child(even) td { background: #e0f2f1; }
@@ -653,7 +680,6 @@ def render_report_html(title: str, content: str, session_id: str, include_docume
 
 
 def generate_txt_artifact(filename: str, title: str, content: str, session_id: str) -> str:
-    """Generates a clean, well-aligned plain-text report artifact including formatted tables."""
     cleaned = clean_raw_latex_artifacts(content)
     lines = cleaned.split("\n")
     out_lines = [
@@ -700,16 +726,15 @@ def generate_txt_artifact(filename: str, title: str, content: str, session_id: s
 
     for line in lines:
         s = line.strip()
-        if s.startswith("|") and s.endswith("|"):
-            table_buf.append(s)
+        if s.startswith("|"):
+            table_buf.append(s if s.endswith("|") else f"{s} |")
         else:
             flush_txt_table()
             out_lines.append(line)
 
     flush_txt_table()
-    txt_payload = "\n".join(out_lines)
     with open(filename, "w", encoding="utf-8") as f:
-        f.write(txt_payload)
+        f.write("\n".join(out_lines))
     return filename
 
 
@@ -787,7 +812,7 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
                 while len(r) < num_cols:
                     r.append(safe_p("", styles['TableCell']))
             col_width = usable_width / max(1, num_cols)
-            t = Table(rows, colWidths=[col_width] * num_cols, repeatRows=1)
+            t = Table(rows, colWidths=[col_width] * num_cols, repeatRows=1, splitByRow=1)
             t.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00796B')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
@@ -866,8 +891,8 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
             code_buffer.append(raw_line.rstrip('\r\n'))
             continue
 
-        if line.startswith('|') and line.endswith('|'):
-            table_buffer.append(line)
+        if line.startswith('|'):
+            table_buffer.append(line if line.endswith('|') else f"{line} |")
             continue
         else:
             flush_table()
@@ -888,6 +913,11 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 4))
             story.append(safe_p(h_text, styles['H3']))
             story.append(Spacer(1, 2))
+        elif line.startswith('- [ ]') or line.startswith('- [x]') or line.startswith('- [X]'):
+            checked = line.startswith('- [x]') or line.startswith('- [X]')
+            box = "☑" if checked else "☐"
+            story.append(safe_p(f"{box} {line[5:].strip()}", styles['Bullet']))
+            story.append(Spacer(1, 2))
         elif line.startswith('- ') or line.startswith('* '):
             story.append(safe_p(f"• {line[2:]}", styles['Bullet']))
             story.append(Spacer(1, 2))
@@ -899,11 +929,11 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 3))
 
     flush_table()
-    flush_code()
+    if in_code_block:
+        flush_code()
 
 
 def guard_story_heights(story: list, max_height: float = 680.0, width: float = 7.0 * inch):
-    """Pre-flight flowable check so no single flowable exceeds frame height and triggers LayoutError."""
     guarded = []
     for flowable in story:
         try:
@@ -918,7 +948,6 @@ def guard_story_heights(story: list, max_height: float = 680.0, width: float = 7
 
 
 def generate_pdf_artifact(filename: str, title: str, content: str, session_id: str, full_html: str = None):
-    """Renders CSS-styled HTML to PDF via WeasyPrint when available, with ReportLab fallback."""
     html_doc = full_html or render_report_html(title, content, session_id, include_document_wrapper=True)
     if WEASYPRINT_AVAILABLE:
         try:
@@ -979,7 +1008,6 @@ def generate_pdf_artifact(filename: str, title: str, content: str, session_id: s
 
 
 def generate_zip_artifact(zip_filename: str, pdf_filename: str, txt_filename: str) -> str:
-    """Bundles both the generated PDF and TXT artifacts into a compressed ZIP archive."""
     with zipfile.ZipFile(zip_filename, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         if os.path.exists(pdf_filename):
             zf.write(pdf_filename, arcname=os.path.basename(pdf_filename))
@@ -1009,14 +1037,13 @@ def process_and_run(title: str, issue_text: str):
     vector_store = LocalARMVectorStore()
     prior_memories = vector_store.recall_prior_context(n_results=2)
     report_content = query_nvidia_nim_iterative(title, issue_text, sim_data, prior_memories)
+    report_content = report_content.replace("{{session_id}}", session_id)
 
     vector_store.trap_information(session_id, [f"Governance Audit Subject: {title}\n{report_content[:1200]}"])
 
-    # 1. Render HTML immediately for fast WordPress display
     wp_html_fragment = render_report_html(title, report_content, session_id, include_document_wrapper=False)
     full_html_doc = render_report_html(title, report_content, session_id, include_document_wrapper=True)
 
-    # 2. Generate PDF (CSS-to-PDF via WeasyPrint with ReportLab fallback) + TXT + ZIP bundle
     short_id = session_id[:16]
     pdf_filename = f"Report_{short_id}.pdf"
     txt_filename = f"Report_{short_id}.txt"
@@ -1033,7 +1060,6 @@ def process_and_run(title: str, issue_text: str):
         f"ZIP: {os.path.getsize(zip_filename) if os.path.exists(zip_filename) else 0}B)"
     )
 
-    # WordPress REST API Upload Integration (uploads ZIP bundle & publishes rendered HTML)
     wp_url = "[https://celsiustechmediagroup.co.za/wp-json/wp/v2](https://celsiustechmediagroup.co.za/wp-json/wp/v2)"
     wp_user = os.getenv("WP_USERNAME")
     wp_pass = os.getenv("WP_APP_PASSWORD")
