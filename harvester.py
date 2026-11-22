@@ -32,25 +32,105 @@ from reportlab.lib.units import inch
 # Configuration & Endpoints
 # ==============================================================================
 NVIDIA_KEY = os.getenv("NVIDIA_API_KEY")
-NVIDIA_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
-PRIMARY_NIM_MODEL = os.getenv("PRIMARY_NIM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
-SECONDARY_NIM_MODEL = os.getenv("SECONDARY_NIM_MODEL", "meta/llama-3.3-70b-instruct")
-TERTIARY_COMPLETION_MODEL = os.getenv("TERTIARY_COMPLETION_MODEL", "openai/gpt-oss-20b")
-QUATERNARY_SYNTHESIS_MODEL = os.getenv("QUATERNARY_SYNTHESIS_MODEL", "google/gemma-4-31b-it")
+NVIDIA_ENDPOINT = os.getenv("NVIDIA_ENDPOINT", "https://integrate.api.nvidia.com/v1/chat/completions")
 
-# Optional Extended Cascade Models (Tiers 5-9 via env vars)
-EXTRA_CASCADE_MODELS = [
-    m for m in [
-        os.getenv("QUINARY_NIM_MODEL"),
-        os.getenv("SENARY_NIM_MODEL"),
-        os.getenv("SEPTENARY_NIM_MODEL"),
-        os.getenv("OCTONARY_NIM_MODEL"),
-        os.getenv("NONARY_NIM_MODEL"),
-    ] if m
-]
+# Enterprise Governance Level ("enterprise" | "cascade" | "stitch" | "render" | "all")
+GOVERNANCE_GUARD_LEVEL = os.getenv("GOVERNANCE_GUARD_LEVEL", "all").strip().lower()
+
+# Throughput, Compute Budget & Thermal Governance Controls
+COMPUTE_OVERCLOCK_FACTOR = float(os.getenv("COMPUTE_OVERCLOCK_FACTOR", "1.25"))
+MAX_TOKENS_PER_STAGE = int(os.getenv("MAX_TOKENS_PER_STAGE", "4096"))
+CONTINUATION_ROUNDS = int(os.getenv("CONTINUATION_ROUNDS", "2"))
 
 # Ephemeral Swarm Scale for Enterprise Audit
 EPHEMERAL_SWARM_COUNT = 200
+
+# ==============================================================================
+# 9-Stage Enterprise NVIDIA NIM Microservice Pipeline
+# ==============================================================================
+ENTERPRISE_NINE_STAGE_PIPELINE = [
+    {
+        "stage": 1,
+        "codename": "Stage_1_Scope_Framing",
+        "governance_function": "MAP / GOVERN",
+        "role": "Rapid Scope & Telemetry Framing",
+        "model": os.getenv("STAGE_1_MODEL", os.getenv("PRIMARY_NIM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")),
+        "temperature": 0.20,
+        "compute_weight": 1.00,
+    },
+    {
+        "stage": 2,
+        "codename": "Stage_2_Thermodynamic_Balance",
+        "governance_function": "MEASURE",
+        "role": "Thermodynamic & Compute-Currency Modeling",
+        "model": os.getenv("STAGE_2_MODEL", os.getenv("SECONDARY_NIM_MODEL", "meta/llama-3.3-70b-instruct")),
+        "temperature": 0.20,
+        "compute_weight": 1.10,
+    },
+    {
+        "stage": 3,
+        "codename": "Stage_3_Boundary_Verification",
+        "governance_function": "MANAGE",
+        "role": "Invariant Boundary & Grounding Verification",
+        "model": os.getenv("STAGE_3_MODEL", os.getenv("TERTIARY_COMPLETION_MODEL", "openai/gpt-oss-20b")),
+        "temperature": 0.15,
+        "compute_weight": 1.15,
+    },
+    {
+        "stage": 4,
+        "codename": "Stage_4_First_Principles_Audit",
+        "governance_function": "MEASURE",
+        "role": "First-Principles & Conservation Audit",
+        "model": os.getenv("STAGE_4_MODEL", os.getenv("QUATERNARY_SYNTHESIS_MODEL", "google/gemma-4-31b-it")),
+        "temperature": 0.20,
+        "compute_weight": 1.25,
+    },
+    {
+        "stage": 5,
+        "codename": "Stage_5_Throughput_Stitcher",
+        "governance_function": "MANAGE",
+        "role": "High-Throughput Continuation & Stream Stitching",
+        "model": os.getenv("STAGE_5_MODEL", os.getenv("QUINARY_NIM_MODEL", "nvidia/nemotron-3-super-120b-a12b")),
+        "temperature": 0.20,
+        "compute_weight": 1.35,
+    },
+    {
+        "stage": 6,
+        "codename": "Stage_6_Matrix_Integrity",
+        "governance_function": "MEASURE",
+        "role": "Table & Matrix Completeness Verification",
+        "model": os.getenv("STAGE_6_MODEL", os.getenv("SENARY_NIM_MODEL", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning")),
+        "temperature": 0.15,
+        "compute_weight": 1.40,
+    },
+    {
+        "stage": 7,
+        "codename": "Stage_7_Compliance_Traceability",
+        "governance_function": "GOVERN",
+        "role": "NIST / NAST Compliance & Risk Traceability",
+        "model": os.getenv("STAGE_7_MODEL", os.getenv("SEPTENARY_NIM_MODEL", "meta/llama-3.3-70b-instruct")),
+        "temperature": 0.20,
+        "compute_weight": 1.50,
+    },
+    {
+        "stage": 8,
+        "codename": "Stage_8_Section_Completion",
+        "governance_function": "MANAGE",
+        "role": "High-Load Continuation & Section Closing",
+        "model": os.getenv("STAGE_8_MODEL", os.getenv("OCTONARY_NIM_MODEL", "openai/gpt-oss-20b")),
+        "temperature": 0.20,
+        "compute_weight": 1.65,
+    },
+    {
+        "stage": 9,
+        "codename": "Stage_9_Executive_Seal",
+        "governance_function": "GOVERN / MANAGE",
+        "role": "Final Synthesis, Checklist Lock & Completeness Seal",
+        "model": os.getenv("STAGE_9_MODEL", os.getenv("NONARY_NIM_MODEL", "google/gemma-4-31b-it")),
+        "temperature": 0.15,
+        "compute_weight": 2.00,
+    },
+]
 
 # ==============================================================================
 # Comprehensive NVIDIA NIM Model Registry (48 Active Models)
@@ -119,35 +199,186 @@ COMPANY_DETAILS = (
 )
 
 SYSTEM_PROMPT = """
-[EXECUTIVE CORPORATE GOVERNANCE & COSMOGENESIS RESOLUTION ENGINE]
-You are a senior enterprise executive advisory board operating within strict corporate governance protocols.
-Your purpose is to deliver a transparent, empirically grounded audit report evaluating the subject proposition through the Cosmogenesis construct, applying strict corporate language and formal business terminology.
+[EXECUTIVE CORPORATE GOVERNANCE, THERMODYNAMICS & RISK RESOLUTION ENGINE]
+You are a senior enterprise executive advisory board and systems engineering audit panel operating within strict corporate governance and NIST / NAST AI RMF protocols (GOVERN, MAP, MEASURE, MANAGE).
+Your purpose is to deliver a transparent, empirically grounded audit report evaluating the subject proposition without fabricating metrics, inventing unsupported physical constants, or truncating tables/checklists.
 
 MANDATORY CORPORATE REPORT STRUCTURE:
 1. **Header Classification Block**:
    - Corporate Classification & Governance Tier
    - Status: ENTERPRISE AUDIT LOCKED // STRATEGIC RESOLUTION ENGAGED
-   - Objective SLA & Accountability Benchmark
+   - Objective SLA & Governance Alignment
 2. **Section 1: Executive Findings & Operational Telemetry Assessment ([Sentinel_Tactical])**:
    - Comprehensive corporate evaluation of the subject proposition, detailing operational velocity, risk posture, and resource allocation.
    - Include a formal Markdown telemetry table (`| Operational Dimension | Corporate Assessment Focus | Evaluated Metric & Confidence | Governance Status |`) with sensors explicitly annotated in brackets per NIST guidelines (e.g., [Sentinel_Tactical], [Sentinel_Analyst], [Sentinel_Safety], [Sentinel_Creative]).
-3. **Section 2: First-Principles Mechanics & Cosmogenesis Synthesis ([Sentinel_Analyst])**:
-   - Rigorous first-principles breakdown of the subject. If and only if the subject explicitly requires physical, astrophysical, or dynamic feedback control modeling, apply the Unified Grand Prophetic Equation (UGPE) and Law of Dimensional Overwrite (LDOW) using strictly known physical constants (Universal scaling constant k = 0.666, Earth Gravity constant g = 9.80665 m/s^2). Avoid arbitrary constants or hallucinations.
-4. **Section 3: Strategic Execution Protocol & Operational Blueprint ([Sentinel_Safety])**:
-   - Actionable corporate implementation roadmap, phased milestones, and compliance guardrails.
+3. **Section 2: First-Principles Thermodynamics & Resource-Currency Synthesis ([Sentinel_Analyst])**:
+   - Rigorous first-principles breakdown of energy balance, enthalpy/work/entropy transfer, and compute overclocking limits using ONLY the verified constants and telemetry supplied in the prompt (e.g., k = 0.666, g = 9.80665 m/s^2 when physics/control modeling is provided). Never invent constants or unsupported claims.
+4. **Section 3: Strategic Execution Protocol & 9-Stage Operational Blueprint ([Sentinel_Safety])**:
+   - Phased execution roadmap across the 9-stage NIM cascade, compute-currency ledgering, and compliance guardrails.
 5. **Section 4: Risk Mitigation & Success Criteria Matrix ([Sentinel_Creative])**:
    - Comprehensive risk assessment and a Markdown success criteria table (`| Strategic Metric | Target Threshold | Verification Methodology |`).
 6. **Section 5: Final Executive Verdict & Immediate Action Checklist**:
-   - Conclude with a formal executive ruling and a complete, untruncated `[ ]` governance checklist (at least 4 full checklist items).
+   - Formal executive ruling and a complete, untruncated `- [ ]` governance checklist (at least 4 full checklist items).
 
 STRICT FORMATTING RULES:
-- Never cut off tables or checklists mid-line. Always complete every table row and every checklist item cleanly.
+- Never cut off tables or checklists mid-line. Always complete every table row and every `- [ ]` checklist item cleanly.
 - Use clean Markdown headers (`#`, `##`, `###`), Markdown tables (`| col | col |`), fenced code blocks (` ``` `), and standard lists (`-` or `1.`).
 - Keep code blocks concise and split long lines/tokens cleanly so layout engines never overflow a single page.
-- Use PLAIN TEXT ONLY for all equations, variables, and code (e.g., `Tau = 0.25`, `Delta_E / Delta_t`).
+- Use PLAIN TEXT ONLY for all equations, variables, and code (e.g., `dU = dQ - dW`, `Tau = 0.25`).
 - DO NOT output raw HTML tags (`<b>`, `<i>`, `<font>`, `<code>`, `<para>`).
 - DO NOT use LaTeX delimiters (`$` or `\\`).
 """
+
+# ==============================================================================
+# Resource & Thermal Ledger + Enterprise Integrity Guard
+# ==============================================================================
+class ResourceThermalLedger:
+    """
+    Tracks token-compute currency, overclocking headroom, and cumulative thermal
+    load across multi-stage NIM passes so runs remain observable and bounded.
+    """
+    def __init__(self, overclock_factor: float = COMPUTE_OVERCLOCK_FACTOR, max_tokens_per_call: int = MAX_TOKENS_PER_STAGE):
+        self.overclock_factor = max(1.0, float(overclock_factor))
+        self.base_max_tokens = max(512, int(max_tokens_per_call))
+        self.total_compute_currency_spent = 0.0
+        self.thermal_load_index = 0.0
+        self.calls_executed = 0
+
+    def compute_call_max_tokens(self, stage_cfg: dict, round_idx: int) -> int:
+        boost = 1.0 + (0.10 * round_idx) + (0.02 * (stage_cfg["stage"] - 1))
+        scaled = int(self.base_max_tokens * min(boost, self.overclock_factor))
+        return max(1024, min(scaled, 8192))
+
+    def record_pass(self, stage_cfg: dict, output_chars: int, round_idx: int):
+        est_tokens = max(1, output_chars // 4)
+        compute_cost = round(est_tokens * stage_cfg["compute_weight"] * (1.0 + 0.05 * round_idx), 2)
+        self.total_compute_currency_spent = round(self.total_compute_currency_spent + compute_cost, 2)
+        self.thermal_load_index = round(
+            max(0.0, self.thermal_load_index * 0.85) + (est_tokens / 1000.0) * stage_cfg["compute_weight"],
+            4
+        )
+        self.calls_executed += 1
+        return {
+            "stage": stage_cfg["stage"],
+            "codename": stage_cfg["codename"],
+            "model": stage_cfg["model"],
+            "round": round_idx,
+            "est_tokens": est_tokens,
+            "compute_cost": compute_cost,
+            "thermal_load": self.thermal_load_index,
+        }
+
+
+class EnterpriseIntegrityGuard:
+    """
+    Enforces structural integrity across cascade passes, block stitching,
+    and document rendering so tables, code blocks, and checklists never truncate.
+    """
+    def __init__(self, level: str = GOVERNANCE_GUARD_LEVEL):
+        self.level = level if level in {"enterprise", "cascade", "stitch", "render", "all"} else "all"
+        self.interventions = 0
+        self.ledger = ResourceThermalLedger()
+
+    def active_at(self, stage: str) -> bool:
+        if self.level in {"all", "enterprise"}:
+            return True
+        return self.level == stage
+
+    def missing_sections(self, text: str) -> list:
+        required = [
+            ("## 1.", "Section 1: Executive Findings & Operational Telemetry Assessment"),
+            ("## 2.", "Section 2: First-Principles Thermodynamics & Resource-Currency Synthesis"),
+            ("## 3.", "Section 3: Strategic Execution Protocol & 9-Stage Operational Blueprint"),
+            ("## 4.", "Section 4: Risk Mitigation & Success Criteria Matrix"),
+            ("## 5.", "Section 5: Final Executive Verdict & Immediate Action Checklist"),
+        ]
+        return [label for marker, label in required if marker not in text]
+
+    def is_complete(self, text: str) -> bool:
+        if not text or not text.strip():
+            return False
+        if self.missing_sections(text):
+            return False
+        lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+        last_line = lines[-1] if lines else ""
+        looks_truncated_table = last_line.startswith("|") and not last_line.endswith("|")
+        looks_truncated_checklist = re.match(r"^(?:•\s*)?-\s*\[\s*\]\s*$", last_line) is not None
+        checklist_count = sum(1 for ln in lines if re.match(r"^(?:•\s*)?-\s*[[ xX]?]\s+\S+", ln))
+        return not looks_truncated_table and not looks_truncated_checklist and checklist_count >= 3
+
+    def stitch_without_overlap(self, existing: str, incoming: str) -> str:
+        if not existing:
+            return incoming.strip()
+        if not incoming or incoming.strip() in existing:
+            return existing
+
+        existing_lines = existing.splitlines()
+        incoming_lines = incoming.strip().splitlines()
+        max_overlap = min(len(existing_lines), len(incoming_lines), 15)
+        overlap_len = 0
+
+        for k in range(max_overlap, 0, -1):
+            if [x.strip() for x in existing_lines[-k:]] == [x.strip() for x in incoming_lines[:k]]:
+                overlap_len = k
+                break
+
+        if overlap_len > 0 and self.active_at("stitch"):
+            self.interventions += 1
+
+        trimmed_incoming = "\n".join(incoming_lines[overlap_len:]).strip()
+        if not trimmed_incoming:
+            return existing
+        return f"{existing.rstrip()}\n\n{trimmed_incoming}"
+
+    def finalize_structure(self, text: str, title: str, sim_data: dict) -> str:
+        fixed = text.strip()
+        if not self.active_at("stitch"):
+            return fixed
+
+        if fixed.count("```") % 2 == 1:
+            fixed += "\n```"
+            self.interventions += 1
+
+        lines = fixed.splitlines()
+        trimmed_bad_rows = False
+        while lines and lines[-1].strip().startswith("|") and lines[-1].strip().count("|") < 3:
+            lines.pop()
+            trimmed_bad_rows = True
+        if trimmed_bad_rows:
+            self.interventions += 1
+
+        fixed = "\n".join(lines).strip()
+        missing = self.missing_sections(fixed)
+        if missing:
+            for sec_label in missing:
+                if sec_label.startswith("## 5."):
+                    fixed += (
+                        f"\n\n{sec_label}\n"
+                        f"'{title}' is approved for controlled execution under enterprise governance.\n"
+                        f"- [ ] Authorize Phase 1 operational deployment under governance guard.\n"
+                        f"- [ ] Enforce risk governance ceiling at D_crit = {sim_data['effective_tau']}.\n"
+                        f"- [ ] Verify full table and checklist completion across HTML, TXT, PDF, and ZIP artifacts.\n"
+                        f"- [ ] Schedule executive review of milestones."
+                    )
+                    self.interventions += 1
+
+        checklist_lines = [
+            ln for ln in fixed.splitlines()
+            if re.match(r"^(?:•\s*)?-\s*[[ xX]?]\s+\S+", ln.strip())
+        ]
+        if len(checklist_lines) < 3:
+            fixed += (
+                f"\n- [ ] Confirm Phase 1 scope and governance guardrails for '{title}'.\n"
+                f"- [ ] Enforce risk threshold D_crit = {sim_data['effective_tau']} across active streams.\n"
+                f"- [ ] Verify all summary tables and action items prior to release.\n"
+                f"- [ ] Schedule post-deployment review and audit sign-off."
+            )
+            self.interventions += 1
+
+        return fixed
+
+
+INTEGRITY_GUARD = EnterpriseIntegrityGuard(GOVERNANCE_GUARD_LEVEL)
 
 # ==============================================================================
 # 1. Persistent Vector Memory (ChromaDB)
@@ -178,7 +409,7 @@ class LocalARMVectorStore:
         return res.get("documents", [])
 
 # ==============================================================================
-# 2. Unified Heuristic Engine & Multi-Model Iterative Completion Engine
+# 2. Unified Heuristic Engine & 9-Stage NIM Orchestrator
 # ==============================================================================
 class UnifiedHeuristicEngine:
     def __init__(self, goal_vector, covariance_matrix, target_distribution, k_constant=0.666, max_threshold=12.0):
@@ -310,7 +541,11 @@ def execute_sentinel_clone_loop(
 
     requires_physics = any(
         kw in (title + prompt_text).lower()
-        for kw in ["physics", "quantum", "vacuum", "gravitational", "energy", "cosmogenesis", "astrophysics", "speed"]
+        for kw in [
+            "physics", "quantum", "vacuum", "gravitational", "energy",
+            "cosmogenesis", "astrophysics", "speed", "overclock",
+            "thermodynamics", "entropy", "enthalpy", "compute"
+        ]
     )
     ugpe_metric = round(k_const * g_const * (len(prompt_text) % 10 + 1), 4) if requires_physics else None
     ldow_metric = round((g_const / k_const) * 0.1, 4) if requires_physics else None
@@ -332,40 +567,6 @@ def execute_sentinel_clone_loop(
     }
 
 
-def _is_report_complete(text: str) -> bool:
-    if not text or not text.strip():
-        return False
-    has_sec5 = ("## 5." in text) or ("final executive verdict" in text.lower()) or ("final verdict" in text.lower())
-    lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
-    last_line = lines[-1] if lines else ""
-    looks_truncated_table = last_line.startswith("|") and not last_line.endswith("|")
-    looks_truncated_checklist = ("- [" in last_line) and len(last_line) < 18
-    return has_sec5 and not looks_truncated_table and not looks_truncated_checklist
-
-
-def _stitch_without_overlap(existing: str, incoming: str) -> str:
-    """Appends incoming continuation while trimming overlapping prefix lines."""
-    if not existing:
-        return incoming.strip()
-    if not incoming or incoming.strip() in existing:
-        return existing
-
-    existing_lines = existing.splitlines()
-    incoming_lines = incoming.strip().splitlines()
-    max_overlap = min(len(existing_lines), len(incoming_lines), 12)
-    overlap_len = 0
-
-    for k in range(max_overlap, 0, -1):
-        if [x.strip() for x in existing_lines[-k:]] == [x.strip() for x in incoming_lines[:k]]:
-            overlap_len = k
-            break
-
-    trimmed_incoming = "\n".join(incoming_lines[overlap_len:]).strip()
-    if not trimmed_incoming:
-        return existing
-    return f"{existing.rstrip()}\n\n{trimmed_incoming}"
-
-
 def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, prior_memories: list) -> str:
     endpoint = os.getenv("NVIDIA_ENDPOINT", NVIDIA_ENDPOINT)
     api_key = os.getenv("NVIDIA_API_KEY", NVIDIA_KEY)
@@ -382,34 +583,28 @@ def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, pri
     physics_str = ""
     if sim_data["requires_physics"]:
         physics_str = (
-            f"\n=== UNIFIED GRAND PROPHETIC EQUATION (UGPE) & LAW OF DIMENSIONAL OVERWRITE (LDOW) ==\n"
+            f"\n=== VERIFIED THERMODYNAMIC & CONTROL CONSTANTS ===\n"
             f"- Universal Scaling Constant (k): 0.666\n"
             f"- Earth Gravity Constant (g): 9.80665 m/s^2\n"
-            f"- UGPE Calculated Vector: {sim_data['ugpe_metric']}\n"
+            f"- UGPE Evaluated Flux: {sim_data['ugpe_metric']}\n"
             f"- LDOW Overwrite Ratio: {sim_data['ldow_metric']}\n"
         )
 
     base_user_prompt = (
         f"SUBJECT TITLE: {title}\n"
         f"PROPOSITION / BUSINESS OBJECTIVE: {prompt_text}\n\n"
-        f"=== ENTERPRISE AUDIT TELEMETRY & GOVERNANCE DATA ===\n"
+        f"=== ENTERPRISE AUDIT TELEMETRY & NAST / NIST GOVERNANCE DATA ===\n"
+        f"- Governance Guard Level: {INTEGRITY_GUARD.level} | Overclock Factor: {INTEGRITY_GUARD.ledger.overclock_factor}x\n"
         f"- Evaluation Scenarios Probed: {sim_data['swarm_total']} Probes via UnifiedHeuristicEngine\n"
         f"- Audit Consensus: {sim_data['swarm_passed']} Validated / {sim_data['swarm_dispelled']} Pruned (Pass Rate: {sim_data['swarm_survival_rate']}%)\n"
         f"- Critical Collapse Boundary (D_crit): {sim_data['effective_tau']}\n"
         f"- Validated Governance Streams:\n{accepted_str}\n"
         f"- Isolated Exceptions (Poofed):\n{dispelled_str}\n"
         f"{physics_str}\n"
-        f"INSTRUCTION: Deliver a complete, untruncated corporate governance and feasibility audit report for '{title}' and '{prompt_text}'. "
+        f"INSTRUCTION: Deliver a complete, untruncated corporate governance, thermodynamic, and NAST feasibility audit report for '{title}' and '{prompt_text}'. "
+        f"Use ONLY the numbers/constants provided above; do not invent outside benchmarks or constants. "
         f"Finish every table row and every '- [ ]' checklist item in Section 5 completely. Use NIST sensor annotations in brackets. Do not output raw LaTeX '$' or '\\' characters."
     )
-
-    models_to_cascade = [
-        PRIMARY_NIM_MODEL,
-        SECONDARY_NIM_MODEL,
-        TERTIARY_COMPLETION_MODEL,
-        QUATERNARY_SYNTHESIS_MODEL,
-        *EXTRA_CASCADE_MODELS,
-    ]
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -422,52 +617,55 @@ def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, pri
     session.mount("https://", HTTPAdapter(max_retries=retries))
 
     accumulated_content = ""
-    for model_name in models_to_cascade:
-        if not api_key:
-            break
-        print(f"🚀 Invoking Enterprise Model [{model_name}] for comprehensive report generation...")
-        try:
-            continuation_instruction = (
-                f"\n\nEXISTING DRAFT (DO NOT REPEAT ALREADY COMPLETED SECTIONS OR TRUNCATE TABLES/CHECKLISTS; CONTINUE CLEANLY FROM WHERE IT LEFT OFF):\n{accumulated_content[-3500:]}"
-                if accumulated_content else ""
-            )
-            payload = {
-                "model": model_name,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": base_user_prompt + continuation_instruction}
-                ],
-                "temperature": 0.25,
-                "max_tokens": 4096
-            }
-            response = session.post(endpoint, headers=headers, json=payload, timeout=(10, 180))
-            if response.status_code == 200:
-                content = response.json()["choices"][0]["message"]["content"].strip()
-                if not accumulated_content:
-                    accumulated_content = content
-                elif len(content) > len(accumulated_content) and ("# " in content and "## 1." in content):
-                    accumulated_content = content
-                else:
-                    accumulated_content = _stitch_without_overlap(accumulated_content, content)
+    if api_key:
+        for round_idx in range(CONTINUATION_ROUNDS):
+            for stage_cfg in ENTERPRISE_NINE_STAGE_PIPELINE:
+                model_name = stage_cfg["model"]
+                max_toks = INTEGRITY_GUARD.ledger.compute_call_max_tokens(stage_cfg, round_idx)
+                print(
+                    f"⚙️ [Stage {stage_cfg['stage']}/9 — {stage_cfg['codename']} | Governance:{stage_cfg['governance_function']}] "
+                    f"Model={model_name} max_tokens={max_toks} temp={stage_cfg['temperature']}"
+                )
+                try:
+                    missing = INTEGRITY_GUARD.missing_sections(accumulated_content) if accumulated_content else []
+                    continuation_instruction = (
+                        f"\n\nEXISTING DRAFT (MISSING SECTIONS: {', '.join(missing) if missing else 'NONE — COMPLETE ANY CUTOFF AT END'}; "
+                        f"DO NOT REPEAT ALREADY COMPLETED SECTIONS OR TRUNCATE TABLES/CHECKLISTS; CONTINUE CLEANLY FROM THE END):\n{accumulated_content[-3500:]}"
+                        if accumulated_content else ""
+                    )
+                    payload = {
+                        "model": model_name,
+                        "messages": [
+                            {"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user", "content": base_user_prompt + continuation_instruction}
+                        ],
+                        "temperature": stage_cfg["temperature"],
+                        "max_tokens": max_toks
+                    }
+                    response = session.post(endpoint, headers=headers, json=payload, timeout=(10, 180))
+                    if response.status_code == 200:
+                        content = response.json()["choices"][0]["message"]["content"].strip()
+                        INTEGRITY_GUARD.ledger.record_pass(stage_cfg, len(content), round_idx)
 
-                if _is_report_complete(accumulated_content):
-                    break
-        except Exception as e:
-            print(f"[WARN] Model {model_name} invocation failed: {e}")
+                        if not accumulated_content:
+                            accumulated_content = content
+                        elif len(content) > len(accumulated_content) and ("# " in content and "## 1." in content):
+                            accumulated_content = content
+                        else:
+                            accumulated_content = INTEGRITY_GUARD.stitch_without_overlap(accumulated_content, content)
+
+                        if INTEGRITY_GUARD.active_at("cascade") and INTEGRITY_GUARD.is_complete(accumulated_content):
+                            break
+                except Exception as e:
+                    print(f"[WARN] Stage {stage_cfg['stage']} ({model_name}) invocation failed: {e}")
+
+            if INTEGRITY_GUARD.is_complete(accumulated_content):
+                break
 
     if not accumulated_content:
         accumulated_content = generate_local_corporate_fallback(title, prompt_text, sim_data)
 
-    if "- [ ]" not in accumulated_content:
-        accumulated_content += (
-            "\n\n## 5. FINAL EXECUTIVE VERDICT & IMMEDIATE ACTION CHECKLIST\n"
-            f"- [ ] Confirm Phase 1 scope and governance guardrails for '{title}'.\n"
-            f"- [ ] Enforce risk threshold D_crit = {sim_data['effective_tau']} across active streams.\n"
-            "- [ ] Verify all summary tables and action items prior to release.\n"
-            "- [ ] Schedule post-deployment review and audit sign-off."
-        )
-
-    return accumulated_content
+    return INTEGRITY_GUARD.finalize_structure(accumulated_content, title, sim_data)
 
 
 def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: dict) -> str:
@@ -487,7 +685,7 @@ def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: di
     physics_section = ""
     if sim_data["requires_physics"]:
         physics_section = (
-            "\n## 2.1 Unified Grand Prophetic Equation & Dimensional Overwrite Breakdown ([Sentinel_Analyst])\n"
+            "\n## 2.1 Thermodynamic & Control Telemetry ([Sentinel_Analyst])\n"
             "- Universal Scaling Constant (k): 0.666\n"
             "- Earth Gravity Constant (g): 9.80665 m/s^2\n"
             f"- UGPE Evaluated Flux: {sim_data['ugpe_metric']}\n"
@@ -495,9 +693,9 @@ def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: di
         )
 
     return "\n".join([
-        f"# ENTERPRISE GOVERNANCE & FEASIBILITY REPORT: {title.upper()}",
-        "**Classification**: EXECUTIVE STRATEGIC GOVERNANCE // TIER-1 COMPLIANCE",
-        "**Status**: AUDIT LOCKED // STRATEGIC RESOLUTION ENGAGED",
+        f"# ENTERPRISE GOVERNANCE & THERMODYNAMIC REPORT: {title.upper()}",
+        "**Classification**: EXECUTIVE STRATEGIC GOVERNANCE // NAST & TIER-1 COMPLIANCE",
+        "**Status**: AUDIT LOCKED // 9-STAGE GOVERNANCE ENGINE ENGAGED",
         f"**Objective Benchmark**: Enterprise Viability | Evaluated Probes: {sim_data['swarm_total']} | Consensus Pass Rate: {sim_data['swarm_survival_rate']}%",
         "",
         "## 1. EXECUTIVE FINDINGS & OPERATIONAL TELEMETRY ASSESSMENT ([Sentinel_Tactical])",
@@ -506,23 +704,23 @@ def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: di
         "",
         *table_rows,
         "",
-        "## 2. FIRST-PRINCIPLES MECHANICS & COSMOGENESIS SYNTHESIS ([Sentinel_Analyst])",
-        "Structured execution and clear threshold boundaries keep operational risk controlled across evaluated scenarios.",
+        "## 2. FIRST-PRINCIPLES THERMODYNAMICS & RESOURCE-CURRENCY SYNTHESIS ([Sentinel_Analyst])",
+        f"Compute currency is ledgered across passes at overclock factor {INTEGRITY_GUARD.ledger.overclock_factor}x with total compute spent = {INTEGRITY_GUARD.ledger.total_compute_currency_spent} and thermal load index = {INTEGRITY_GUARD.ledger.thermal_load_index}.",
         physics_section,
         "",
-        "## 3. STRATEGIC EXECUTION PROTOCOL & OPERATIONAL BLUEPRINT ([Sentinel_Safety])",
+        "## 3. STRATEGIC EXECUTION PROTOCOL & 9-STAGE OPERATIONAL BLUEPRINT ([Sentinel_Safety])",
         f"1. **Phase 1 — Baseline Deployment**: Initiate '{title}' within verified operational parameters, maintaining boundaries below `D_crit = {sim_data['effective_tau']}`.",
-        "2. **Phase 2 — Closed-Loop Governance**: Deploy structured milestone monitoring to ensure enterprise alignment.",
-        "3. **Phase 3 — Continuous Compliance**: Enforce strict governance oversight across all active workstreams.",
+        "2. **Phase 2 — Closed-Loop Governance**: Step across Stages 1–9 with continuation stitching whenever required sections or blocks remain incomplete.",
+        "3. **Phase 3 — Continuous Compliance**: Enforce strict NAST / NIST governance oversight across all active workstreams.",
         "",
         "## 4. RISK MITIGATION & SUCCESS CRITERIA MATRIX ([Sentinel_Creative])",
         "| Strategic Metric | Target Threshold | Verification Methodology |",
         "| --- | --- | --- |",
-        f"| Operational Validation Rate | > 85.0% | Comprehensive Scenario Audit ({sim_data['swarm_survival_rate']}%) |",
+        f"| Operational Validation Rate | {sim_data['swarm_survival_rate']}% | UnifiedHeuristicEngine ({sim_data['swarm_total']} probes) |",
         f"| Risk Threshold Adherence | < {sim_data['effective_tau']} | Continuous Governance Monitoring |",
         "",
         "## 5. FINAL EXECUTIVE VERDICT & IMMEDIATE ACTION CHECKLIST",
-        f"'{title}' is approved for controlled execution under standard governance oversight.",
+        f"'{title}' is approved for controlled execution under enterprise governance.",
         "- [ ] Authorize Phase 1 operational deployment.",
         f"- [ ] Enforce risk governance ceiling at D_crit = {sim_data['effective_tau']}.",
         "- [ ] Verify full table and checklist completion in generated artifacts.",
@@ -538,6 +736,14 @@ def clean_raw_latex_artifacts(text: str) -> str:
     text = re.sub(r'(?<!\\)\$', '', text)
     text = text.replace("\\{", "{").replace("\\}", "}")
     return text
+
+
+def _parse_checklist_line(stripped: str):
+    m = re.match(r"^(?:•\s*)?-\s*\[([ xX]?)\]\s+(.*)$", stripped)
+    if not m:
+        return None
+    checked = m.group(1).lower() == "x"
+    return checked, m.group(2).strip()
 
 
 def _format_inline_html(text: str) -> str:
@@ -618,6 +824,7 @@ def render_report_html(title: str, content: str, session_id: str, include_docume
         if not stripped:
             continue
 
+        chk = _parse_checklist_line(stripped) if INTEGRITY_GUARD.active_at("render") else None
         if stripped.startswith("# "):
             body_parts.append(f"<h1>{_format_inline_html(stripped[2:])}</h1>")
         elif stripped.startswith("## "):
@@ -625,13 +832,13 @@ def render_report_html(title: str, content: str, session_id: str, include_docume
         elif stripped.startswith("### ") or stripped.startswith("#### "):
             h_txt = re.sub(r"^#+\s*", "", stripped).strip()
             body_parts.append(f"<h3>{_format_inline_html(h_txt)}</h3>")
-        elif stripped.startswith("- [ ]") or stripped.startswith("- [x]") or stripped.startswith("- [X]"):
-            checked = stripped.startswith("- [x]") or stripped.startswith("- [X]")
+        elif chk is not None:
+            checked, item_text = chk
             box_char = "☑" if checked else "☐"
-            item_text = stripped[5:].strip()
             body_parts.append(f"<div class='uesp-check'>{box_char} {_format_inline_html(item_text)}</div>")
-        elif stripped.startswith("- ") or stripped.startswith("* "):
-            body_parts.append(f"<div class='uesp-bullet'>• {_format_inline_html(stripped[2:])}</div>")
+        elif stripped.startswith("- ") or stripped.startswith("* ") or stripped.startswith("• "):
+            bullet_body = stripped[2:].strip()
+            body_parts.append(f"<div class='uesp-bullet'>• {_format_inline_html(bullet_body)}</div>")
         elif re.match(r"^\d+\.\s", stripped):
             body_parts.append(f"<div class='uesp-bullet'>{_format_inline_html(stripped)}</div>")
         else:
@@ -664,11 +871,13 @@ def render_report_html(title: str, content: str, session_id: str, include_docume
     </style>
     """
 
+    ledger = INTEGRITY_GUARD.ledger
     inner_html = (
         f"{css_block if include_document_wrapper else ''}"
         f"<div class='uesp-report-wrap'>"
         f"<div class='uesp-header-bar'><div class='uesp-brand'>CELSIUS TECH MEDIA GROUP</div><div>{html.escape(COMPANY_DETAILS).replace(chr(10), '<br/>')}</div></div>"
-        f"<div class='uesp-meta-box'><strong>Session ID:</strong> {html.escape(session_id)} | <strong>Catalog Models:</strong> {len(NVIDIA_NIM_CATALOG)} | <strong>Audit Probes:</strong> {EPHEMERAL_SWARM_COUNT}</div>"
+        f"<div class='uesp-meta-box'><strong>Session ID:</strong> {html.escape(session_id)} | <strong>Governance Guard:</strong> {html.escape(INTEGRITY_GUARD.level)} (Repairs: {INTEGRITY_GUARD.interventions}) | "
+        f"<strong>Compute Spent:</strong> {ledger.total_compute_currency_spent} | <strong>Thermal Load:</strong> {ledger.thermal_load_index} | <strong>Audit Probes:</strong> {EPHEMERAL_SWARM_COUNT}</div>"
         f"<h2>Subject: {html.escape(title)}</h2>"
         + "\n".join(body_parts)
         + "</div>"
@@ -682,13 +891,16 @@ def render_report_html(title: str, content: str, session_id: str, include_docume
 def generate_txt_artifact(filename: str, title: str, content: str, session_id: str) -> str:
     cleaned = clean_raw_latex_artifacts(content)
     lines = cleaned.split("\n")
+    ledger = INTEGRITY_GUARD.ledger
     out_lines = [
         "========================================================================",
-        "CELSIUS TECH MEDIA GROUP — ENTERPRISE GOVERNANCE & FEASIBILITY REPORT",
+        "CELSIUS TECH MEDIA GROUP — ENTERPRISE GOVERNANCE & THERMODYNAMIC REPORT",
         "========================================================================",
-        f"Session ID : {session_id}",
-        f"Subject    : {title}",
-        f"Audit Scale: {EPHEMERAL_SWARM_COUNT} Probes",
+        f"Session ID     : {session_id}",
+        f"Governance Guard: {INTEGRITY_GUARD.level} (Repairs: {INTEGRITY_GUARD.interventions})",
+        f"Compute Spent  : {ledger.total_compute_currency_spent} | Thermal Load: {ledger.thermal_load_index}",
+        f"Subject        : {title}",
+        f"Audit Scale    : {EPHEMERAL_SWARM_COUNT} Probes",
         "------------------------------------------------------------------------",
         ""
     ]
@@ -730,7 +942,12 @@ def generate_txt_artifact(filename: str, title: str, content: str, session_id: s
             table_buf.append(s if s.endswith("|") else f"{s} |")
         else:
             flush_txt_table()
-            out_lines.append(line)
+            chk = _parse_checklist_line(s) if INTEGRITY_GUARD.active_at("render") else None
+            if chk is not None:
+                checked, item_text = chk
+                out_lines.append(f"[{'X' if checked else ' '}] {item_text}")
+            else:
+                out_lines.append(line)
 
     flush_txt_table()
     with open(filename, "w", encoding="utf-8") as f:
@@ -900,6 +1117,7 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
         if not line:
             continue
 
+        chk = _parse_checklist_line(line) if INTEGRITY_GUARD.active_at("render") else None
         if line.startswith('# '):
             story.append(Spacer(1, 8))
             story.append(safe_p(line[2:], styles['H1']))
@@ -913,13 +1131,13 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
             story.append(Spacer(1, 4))
             story.append(safe_p(h_text, styles['H3']))
             story.append(Spacer(1, 2))
-        elif line.startswith('- [ ]') or line.startswith('- [x]') or line.startswith('- [X]'):
-            checked = line.startswith('- [x]') or line.startswith('- [X]')
+        elif chk is not None:
+            checked, item_text = chk
             box = "☑" if checked else "☐"
-            story.append(safe_p(f"{box} {line[5:].strip()}", styles['Bullet']))
+            story.append(safe_p(f"{box} {item_text}", styles['Bullet']))
             story.append(Spacer(1, 2))
-        elif line.startswith('- ') or line.startswith('* '):
-            story.append(safe_p(f"• {line[2:]}", styles['Bullet']))
+        elif line.startswith('- ') or line.startswith('* ') or line.startswith('• '):
+            story.append(safe_p(f"• {line[2:].strip()}", styles['Bullet']))
             story.append(Spacer(1, 2))
         elif re.match(r'^\d+\.\s', line):
             story.append(safe_p(line, styles['Bullet']))
@@ -982,12 +1200,14 @@ def generate_pdf_artifact(filename: str, title: str, content: str, session_id: s
     story.append(header)
     story.append(Spacer(1, 10))
 
+    ledger = INTEGRITY_GUARD.ledger
     manifest_text = (
-        f"ECTA & ENTERPRISE GOVERNANCE MANIFEST:\n"
+        f"ECTA, NAST & ENTERPRISE GOVERNANCE MANIFEST:\n"
         f"• SHA256 ECTA Timestamped Session: {session_id}\n"
-        f"• Multi-Model Iterative Completion Protocol: Active (Cascaded Models)\n"
-        f"• Knowledge Catalog: Registered ({len(NVIDIA_NIM_CATALOG)} Active Models)\n"
-        f"• Governance Audit Scale: {EPHEMERAL_SWARM_COUNT} Probes | NIST Sensor Annotations"
+        f"• Governance Guard: {INTEGRITY_GUARD.level} (Repairs Applied: {INTEGRITY_GUARD.interventions}) | Overclock: {ledger.overclock_factor}x\n"
+        f"• Compute Currency Spent: {ledger.total_compute_currency_spent} | Thermal Load Index: {ledger.thermal_load_index}\n"
+        f"• Knowledge Catalog: Registered ({len(NVIDIA_NIM_CATALOG)} Active Models) | 9-Stage Cascade Armed\n"
+        f"• Governance Audit Scale: {EPHEMERAL_SWARM_COUNT} Probes | NIST / NAST Sensor Annotations"
     )
     manifest_box = Table([[safe_p(manifest_text, styles['Manifest'])]], colWidths=[usable_width])
     manifest_box.setStyle(TableStyle([
@@ -1019,6 +1239,9 @@ def generate_zip_artifact(zip_filename: str, pdf_filename: str, txt_filename: st
 # 4. Main Execution Entry
 # ==============================================================================
 def process_and_run(title: str, issue_text: str):
+    INTEGRITY_GUARD.interventions = 0
+    INTEGRITY_GUARD.ledger = ResourceThermalLedger()
+
     combined_context = f"{title} :: {issue_text}"
     session_id = uesp_quantum_core.generate_ecta_session_id(combined_context)
 
@@ -1053,8 +1276,11 @@ def process_and_run(title: str, issue_text: str):
     generate_txt_artifact(txt_filename, title, report_content, session_id)
     generate_zip_artifact(zip_filename, pdf_filename, txt_filename)
 
+    ledger = INTEGRITY_GUARD.ledger
     print(
         f"✅ Artifacts generated: {zip_filename} "
+        f"[Guard={INTEGRITY_GUARD.level}, repairs={INTEGRITY_GUARD.interventions}, "
+        f"compute={ledger.total_compute_currency_spent}, thermal={ledger.thermal_load_index}] "
         f"(PDF: {os.path.getsize(pdf_filename) if os.path.exists(pdf_filename) else 0}B, "
         f"TXT: {os.path.getsize(txt_filename) if os.path.exists(txt_filename) else 0}B, "
         f"ZIP: {os.path.getsize(zip_filename) if os.path.exists(zip_filename) else 0}B)"
