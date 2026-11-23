@@ -1,6 +1,8 @@
 import os
 import re
+import json
 import html
+import hashlib
 import zipfile
 import requests
 import numpy as np
@@ -39,11 +41,22 @@ GOVERNANCE_GUARD_LEVEL = os.getenv("GOVERNANCE_GUARD_LEVEL", "all").strip().lowe
 
 # Throughput, Compute Budget & Thermal Governance Controls
 COMPUTE_OVERCLOCK_FACTOR = float(os.getenv("COMPUTE_OVERCLOCK_FACTOR", "1.25"))
-MAX_TOKENS_PER_STAGE = int(os.getenv("MAX_TOKENS_PER_STAGE", "4096"))
-CONTINUATION_ROUNDS = int(os.getenv("CONTINUATION_ROUNDS", "2"))
+MAX_TOKENS_PER_STAGE = int(os.getenv("MAX_TOKENS_PER_STAGE", "3072"))
+CONTINUATION_ROUNDS = int(os.getenv("CONTINUATION_ROUNDS", "1"))
+REQUEST_READ_TIMEOUT = int(os.getenv("REQUEST_READ_TIMEOUT", "60"))
 
-# Ephemeral Swarm Scale for Enterprise Audit
-EPHEMERAL_SWARM_COUNT = 200
+# Report-Defined Cycle & Epoch Constants (10,000 cycles/epoch, 5 epochs = 50,000 cycles)
+CYCLES_PER_EPOCH = 10000
+AUDIT_EPOCHS = 5
+QUANTUM_CYCLE_DILATION = int(os.getenv("QUANTUM_CYCLE_DILATION", str(CYCLES_PER_EPOCH * AUDIT_EPOCHS)))
+DILATION_RATIO = 6000
+K_SCALING_CONSTANT = 0.666
+G_GRAVITY_CONSTANT = 9.80665
+UGPE_FLUX = 65.3123
+LDOW_OVERWRITE_RATIO = 1.4725
+D_CRIT_BOUNDARY = 6.66
+HARD_OC_LIMIT = 3.39
+LEDGER_VARIANCE_TOLERANCE_PCT = 0.5
 
 # ==============================================================================
 # 9-Stage Enterprise NVIDIA NIM Microservice Pipeline
@@ -51,79 +64,79 @@ EPHEMERAL_SWARM_COUNT = 200
 ENTERPRISE_NINE_STAGE_PIPELINE = [
     {
         "stage": 1,
-        "codename": "Stage_1_Scope_Framing",
-        "governance_function": "MAP / GOVERN",
-        "role": "Rapid Scope & Telemetry Framing",
+        "codename": "Stage_1_GOVERN_Charter",
+        "governance_function": "GOVERN",
+        "role": "Charter, Risk Appetite & Telemetry Framing",
         "model": os.getenv("STAGE_1_MODEL", os.getenv("PRIMARY_NIM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")),
         "temperature": 0.20,
         "compute_weight": 1.00,
     },
     {
         "stage": 2,
-        "codename": "Stage_2_Thermodynamic_Balance",
-        "governance_function": "MEASURE",
-        "role": "Thermodynamic & Compute-Currency Modeling",
+        "codename": "Stage_2_MAP_Dependencies",
+        "governance_function": "MAP",
+        "role": "AVX2 SIMD, DDPG & Dilation Dependency Mapping",
         "model": os.getenv("STAGE_2_MODEL", os.getenv("SECONDARY_NIM_MODEL", "meta/llama-3.3-70b-instruct")),
         "temperature": 0.20,
         "compute_weight": 1.10,
     },
     {
         "stage": 3,
-        "codename": "Stage_3_Boundary_Verification",
-        "governance_function": "MANAGE",
-        "role": "Invariant Boundary & Grounding Verification",
+        "codename": "Stage_3_MEASURE_Baseline",
+        "governance_function": "MEASURE",
+        "role": "Thermodynamic & Compute-Currency Evaluation",
         "model": os.getenv("STAGE_3_MODEL", os.getenv("TERTIARY_COMPLETION_MODEL", "openai/gpt-oss-20b")),
         "temperature": 0.15,
         "compute_weight": 1.15,
     },
     {
         "stage": 4,
-        "codename": "Stage_4_First_Principles_Audit",
+        "codename": "Stage_4_MEASURE_Overclock",
         "governance_function": "MEASURE",
-        "role": "First-Principles & Conservation Audit",
+        "role": "Overclock & 50,000-Cycle Validation Synthesis",
         "model": os.getenv("STAGE_4_MODEL", os.getenv("QUATERNARY_SYNTHESIS_MODEL", "google/gemma-4-31b-it")),
         "temperature": 0.20,
         "compute_weight": 1.25,
     },
     {
         "stage": 5,
-        "codename": "Stage_5_Throughput_Stitcher",
+        "codename": "Stage_5_MANAGE_Monitoring",
         "governance_function": "MANAGE",
-        "role": "High-Throughput Continuation & Stream Stitching",
+        "role": "Continuous Monitoring & Continuation Stitcher",
         "model": os.getenv("STAGE_5_MODEL", os.getenv("QUINARY_NIM_MODEL", "nvidia/nemotron-3-super-120b-a12b")),
         "temperature": 0.20,
         "compute_weight": 1.35,
     },
     {
         "stage": 6,
-        "codename": "Stage_6_Matrix_Integrity",
-        "governance_function": "MEASURE",
-        "role": "Table & Matrix Completeness Verification",
+        "codename": "Stage_6_MANAGE_Rollback",
+        "governance_function": "MANAGE",
+        "role": "Automated Rollback & Table Completeness Check",
         "model": os.getenv("STAGE_6_MODEL", os.getenv("SENARY_NIM_MODEL", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning")),
         "temperature": 0.15,
         "compute_weight": 1.40,
     },
     {
         "stage": 7,
-        "codename": "Stage_7_Compliance_Traceability",
+        "codename": "Stage_7_GOVERN_AuditTrail",
         "governance_function": "GOVERN",
-        "role": "NIST / NAST Compliance & Risk Traceability",
+        "role": "NAST / NIST Audit Trail & Ledger Reconciliation",
         "model": os.getenv("STAGE_7_MODEL", os.getenv("SEPTENARY_NIM_MODEL", "meta/llama-3.3-70b-instruct")),
         "temperature": 0.20,
         "compute_weight": 1.50,
     },
     {
         "stage": 8,
-        "codename": "Stage_8_Section_Completion",
-        "governance_function": "MANAGE",
-        "role": "High-Load Continuation & Section Closing",
+        "codename": "Stage_8_MAP_DilationScaling",
+        "governance_function": "MAP",
+        "role": "Dilation Scaling & Section Closing",
         "model": os.getenv("STAGE_8_MODEL", os.getenv("OCTONARY_NIM_MODEL", "openai/gpt-oss-20b")),
         "temperature": 0.20,
         "compute_weight": 1.65,
     },
     {
         "stage": 9,
-        "codename": "Stage_9_Executive_Seal",
+        "codename": "Stage_9_SUSTAIN_Seal",
         "governance_function": "GOVERN / MANAGE",
         "role": "Final Synthesis, Checklist Lock & Completeness Seal",
         "model": os.getenv("STAGE_9_MODEL", os.getenv("NONARY_NIM_MODEL", "google/gemma-4-31b-it")),
@@ -212,7 +225,7 @@ MANDATORY CORPORATE REPORT STRUCTURE:
    - Comprehensive corporate evaluation of the subject proposition, detailing operational velocity, risk posture, and resource allocation.
    - Include a formal Markdown telemetry table (`| Operational Dimension | Corporate Assessment Focus | Evaluated Metric & Confidence | Governance Status |`) with sensors explicitly annotated in brackets per NIST guidelines (e.g., [Sentinel_Tactical], [Sentinel_Analyst], [Sentinel_Safety], [Sentinel_Creative]).
 3. **Section 2: First-Principles Thermodynamics & Resource-Currency Synthesis ([Sentinel_Analyst])**:
-   - Rigorous first-principles breakdown of energy balance, enthalpy/work/entropy transfer, and compute overclocking limits using ONLY the verified constants and telemetry supplied in the prompt (e.g., k = 0.666, g = 9.80665 m/s^2 when physics/control modeling is provided). Never invent constants or unsupported claims.
+   - Rigorous first-principles breakdown of energy balance, enthalpy/work/entropy transfer, and compute overclocking limits using ONLY the verified constants and telemetry supplied in the prompt. Never invent constants or unsupported claims.
 4. **Section 3: Strategic Execution Protocol & 9-Stage Operational Blueprint ([Sentinel_Safety])**:
    - Phased execution roadmap across the 9-stage NIM cascade, compute-currency ledgering, and compliance guardrails.
 5. **Section 4: Risk Mitigation & Success Criteria Matrix ([Sentinel_Creative])**:
@@ -222,9 +235,9 @@ MANDATORY CORPORATE REPORT STRUCTURE:
 
 STRICT FORMATTING RULES:
 - Never cut off tables or checklists mid-line. Always complete every table row and every `- [ ]` checklist item cleanly.
+- Output the full report or a clean continuation ONLY ONCE—never duplicate Section 5 or restart a Header Classification Block in a continuation pass.
 - Use clean Markdown headers (`#`, `##`, `###`), Markdown tables (`| col | col |`), fenced code blocks (` ``` `), and standard lists (`-` or `1.`).
-- Keep code blocks concise and split long lines/tokens cleanly so layout engines never overflow a single page.
-- Use PLAIN TEXT ONLY for all equations, variables, and code (e.g., `dU = dQ - dW`, `Tau = 0.25`).
+- Use PLAIN TEXT ONLY for all equations, variables, and code (e.g., `dU = dQ - dW`, `Tau = 6.66`).
 - DO NOT output raw HTML tags (`<b>`, `<i>`, `<font>`, `<code>`, `<para>`).
 - DO NOT use LaTeX delimiters (`$` or `\\`).
 """
@@ -235,7 +248,7 @@ STRICT FORMATTING RULES:
 class ResourceThermalLedger:
     """
     Tracks token-compute currency, overclocking headroom, and cumulative thermal
-    load across multi-stage NIM passes so runs remain observable and bounded.
+    load across multi-stage NIM passes.
     """
     def __init__(self, overclock_factor: float = COMPUTE_OVERCLOCK_FACTOR, max_tokens_per_call: int = MAX_TOKENS_PER_STAGE):
         self.overclock_factor = max(1.0, float(overclock_factor))
@@ -247,7 +260,7 @@ class ResourceThermalLedger:
     def compute_call_max_tokens(self, stage_cfg: dict, round_idx: int) -> int:
         boost = 1.0 + (0.10 * round_idx) + (0.02 * (stage_cfg["stage"] - 1))
         scaled = int(self.base_max_tokens * min(boost, self.overclock_factor))
-        return max(1024, min(scaled, 8192))
+        return max(1024, min(scaled, 6144))
 
     def record_pass(self, stage_cfg: dict, output_chars: int, round_idx: int):
         est_tokens = max(1, output_chars // 4)
@@ -272,7 +285,8 @@ class ResourceThermalLedger:
 class EnterpriseIntegrityGuard:
     """
     Enforces structural integrity across cascade passes, block stitching,
-    and document rendering so tables, code blocks, and checklists never truncate.
+    and document rendering so tables, sections, and checklists do not truncate
+    or duplicate.
     """
     def __init__(self, level: str = GOVERNANCE_GUARD_LEVEL):
         self.level = level if level in {"enterprise", "cascade", "stitch", "render", "all"} else "all"
@@ -304,13 +318,47 @@ class EnterpriseIntegrityGuard:
         looks_truncated_table = last_line.startswith("|") and not last_line.endswith("|")
         looks_truncated_checklist = re.match(r"^(?:•\s*)?-\s*\[\s*\]\s*$", last_line) is not None
         checklist_count = sum(1 for ln in lines if re.match(r"^(?:•\s*)?-\s*[[ xX]?]\s+\S+", ln))
-        return not looks_truncated_table and not looks_truncated_checklist and checklist_count >= 3
+        return not looks_truncated_table and not looks_truncated_checklist and checklist_count >= 4
+
+    def _deduplicate_repeated_tail(self, text: str) -> str:
+        """Removes duplicate Section 5 / Header Classification Block repetitions."""
+        lines = text.splitlines()
+        seen_sec5 = False
+        cleaned_lines = []
+        skip_mode = False
+
+        for ln in lines:
+            s = ln.strip()
+            if re.match(r"^#{1,3}\s*5\.\s+FINAL EXECUTIVE VERDICT", s, flags=re.IGNORECASE):
+                if seen_sec5:
+                    skip_mode = True
+                    self.interventions += 1
+                    continue
+                seen_sec5 = True
+                skip_mode = False
+            elif skip_mode and re.match(r"^#{1,3}\s+[1-4]\.\s+", s):
+                skip_mode = False
+            elif skip_mode and s.startswith("HEADER CLASSIFICATION BLOCK"):
+                self.interventions += 1
+                continue
+
+            if not skip_mode:
+                cleaned_lines.append(ln)
+
+        return "\n".join(cleaned_lines).strip()
 
     def stitch_without_overlap(self, existing: str, incoming: str) -> str:
         if not existing:
             return incoming.strip()
         if not incoming or incoming.strip() in existing:
             return existing
+
+        # If incoming starts with a full header & Section 1 while existing already has it, strip preamble
+        if "## 1." in existing and "## 1." in incoming:
+            sec1_pos = incoming.find("## 1.")
+            incoming = incoming[sec1_pos:].strip()
+            if self.active_at("stitch"):
+                self.interventions += 1
 
         existing_lines = existing.splitlines()
         incoming_lines = incoming.strip().splitlines()
@@ -328,12 +376,15 @@ class EnterpriseIntegrityGuard:
         trimmed_incoming = "\n".join(incoming_lines[overlap_len:]).strip()
         if not trimmed_incoming:
             return existing
-        return f"{existing.rstrip()}\n\n{trimmed_incoming}"
+        merged = f"{existing.rstrip()}\n\n{trimmed_incoming}"
+        return self._deduplicate_repeated_tail(merged) if self.active_at("stitch") else merged
 
     def finalize_structure(self, text: str, title: str, sim_data: dict) -> str:
         fixed = text.strip()
         if not self.active_at("stitch"):
             return fixed
+
+        fixed = self._deduplicate_repeated_tail(fixed)
 
         if fixed.count("```") % 2 == 1:
             fixed += "\n```"
@@ -364,9 +415,9 @@ class EnterpriseIntegrityGuard:
 
         checklist_lines = [
             ln for ln in fixed.splitlines()
-            if re.match(r"^(?:•\s*)?-\s*[[ xX]?]\s+\S+", ln.strip())
+            if re.match(r"^(?:•\s*)?-\s*\[[ xX]?\]\s+\S+", ln.strip())
         ]
-        if len(checklist_lines) < 3:
+        if len(checklist_lines) < 4:
             fixed += (
                 f"\n- [ ] Confirm Phase 1 scope and governance guardrails for '{title}'.\n"
                 f"- [ ] Enforce risk threshold D_crit = {sim_data['effective_tau']} across active streams.\n"
@@ -409,10 +460,10 @@ class LocalARMVectorStore:
         return res.get("documents", [])
 
 # ==============================================================================
-# 2. Unified Heuristic Engine & 9-Stage NIM Orchestrator
+# 2. Unified Heuristic Engine & 50,000-Cycle Thermodynamic Evaluator
 # ==============================================================================
 class UnifiedHeuristicEngine:
-    def __init__(self, goal_vector, covariance_matrix, target_distribution, k_constant=0.666, max_threshold=12.0):
+    def __init__(self, goal_vector, covariance_matrix, target_distribution, k_constant=K_SCALING_CONSTANT, max_threshold=10.0):
         self.goal = np.array(goal_vector, dtype=float)
         self.sigma = np.array(covariance_matrix, dtype=float)
         self.sigma_inv = np.linalg.inv(self.sigma + np.eye(self.sigma.shape[0]) * 1e-5)
@@ -422,44 +473,26 @@ class UnifiedHeuristicEngine:
         self.max_threshold = float(max_threshold)
         self.d_crit = self.k * self.max_threshold
 
-    def compute_euclidean(self, state: np.ndarray) -> float:
-        return float(np.linalg.norm(self.goal - state))
+    def evaluate_batch_vectorized(self, states: np.ndarray, p_dists: np.ndarray) -> tuple:
+        """
+        Evaluates N cycle states in vectorized NumPy to support 50,000-cycle
+        (5-epoch) runs without per-cycle Python loop overhead.
+        """
+        diffs = self.goal - states  # (N, D)
+        h_euc = np.linalg.norm(diffs, axis=1)  # (N,)
+        mah_sq = np.einsum("ni,ij,nj->n", diffs, self.sigma_inv, diffs)
+        h_mah = np.sqrt(np.maximum(0.0, mah_sq))
 
-    def compute_mahalanobis(self, state: np.ndarray) -> float:
-        diff = self.goal - state
-        val = np.dot(diff.T, np.dot(self.sigma_inv, diff))
-        return float(np.sqrt(max(0.0, val)))
-
-    def compute_kl_divergence(self, p_distribution: list) -> float:
-        p = np.array(p_distribution, dtype=float)
-        p /= np.sum(p)
+        p_norm = p_dists / np.sum(p_dists, axis=1, keepdims=True)
         eps = 1e-10
-        p = np.clip(p, eps, 1.0)
-        q = np.clip(self.q_dist, eps, 1.0)
-        return float(np.sum(p * np.log(p / q)))
+        p_clip = np.clip(p_norm, eps, 1.0)
+        q_clip = np.clip(self.q_dist, eps, 1.0)
+        h_kl = np.sum(p_clip * np.log(p_clip / q_clip), axis=1)
 
-    def evaluate_shadow_clone(self, clone_id: int, state_vector: list, p_distribution: list) -> dict:
-        state = np.array(state_vector, dtype=float)
-        h_euc = self.compute_euclidean(state)
-        h_mah = self.compute_mahalanobis(state)
-        h_kl = self.compute_kl_divergence(p_distribution)
         raw_heuristic = (0.35 * h_euc) + (0.45 * h_mah) + (0.20 * h_kl)
         h_scaled = self.k * raw_heuristic
-
-        if h_scaled > self.d_crit or np.isinf(h_kl) or np.isnan(h_scaled):
-            return {
-                "clone_id": clone_id,
-                "status": "POOF",
-                "reason": f"Threshold breached. Scaled score {h_scaled:.3f} > D_crit {self.d_crit:.3f} "
-                          f"(Euclidean: {h_euc:.2f}, Mahalanobis: {h_mah:.2f}, KL-Div: {h_kl:.2f})",
-                "score": h_scaled
-            }
-        return {
-            "clone_id": clone_id,
-            "status": "SURVIVED",
-            "reason": "State integrity validated across vector, covariance, and probability space.",
-            "score": h_scaled
-        }
+        passed_mask = (h_scaled <= self.d_crit) & np.isfinite(h_scaled) & np.isfinite(h_kl)
+        return passed_mask, h_scaled, h_euc, h_mah, h_kl
 
 
 def get_ddpg_clone_policy(prompt_text: str) -> list:
@@ -477,91 +510,157 @@ def get_ddpg_clone_policy(prompt_text: str) -> list:
     return [0.7500, 0.6500, 0.2500, 0.8500]
 
 
+def compute_locked_thermodynamics(overclock_factor: float, total_cycles: int) -> dict:
+    """
+    Computes report-defined thermodynamic & compute-currency metrics deterministically
+    using only constants from Report_UESP-SESSION-414.pdf and Report_UESP-SESSION-67f.pdf.
+    """
+    q_in = round(UGPE_FLUX * K_SCALING_CONSTANT, 6)
+    w_out = round(LDOW_OVERWRITE_RATIO * overclock_factor, 6)
+    u_net = round(q_in - w_out, 6)
+    t_eff = round(G_GRAVITY_CONSTANT * K_SCALING_CONSTANT, 6)
+    entropy_rate = round((q_in / t_eff) * (1.0 / DILATION_RATIO), 8)
+    entropy_dilation_product = round(entropy_rate * DILATION_RATIO, 6)
+    entropy_margin_raw = round(D_CRIT_BOUNDARY - entropy_dilation_product, 6)
+    oc_max_theoretical = round(D_CRIT_BOUNDARY / (K_SCALING_CONSTANT * LDOW_OVERWRITE_RATIO), 4)
+    simd_efficiency = round((u_net * K_SCALING_CONSTANT) / (LDOW_OVERWRITE_RATIO * overclock_factor * DILATION_RATIO), 6)
+    policy_budget_per_step = round((u_net * K_SCALING_CONSTANT) / DILATION_RATIO, 6)
+    total_u_net_cycles = round(total_cycles * u_net, 4)
+    total_amortized_cu = round(total_cycles * policy_budget_per_step, 6)
+    epochs_completed = round(total_cycles / CYCLES_PER_EPOCH, 2)
+
+    return {
+        "k": K_SCALING_CONSTANT,
+        "g": G_GRAVITY_CONSTANT,
+        "ugpe_flux": UGPE_FLUX,
+        "ldow_ratio": LDOW_OVERWRITE_RATIO,
+        "dilation_ratio": DILATION_RATIO,
+        "overclock_factor": round(overclock_factor, 4),
+        "hard_oc_limit": HARD_OC_LIMIT,
+        "oc_max_theoretical": oc_max_theoretical,
+        "q_in": q_in,
+        "w_out": w_out,
+        "u_net": u_net,
+        "t_eff": t_eff,
+        "entropy_rate": entropy_rate,
+        "entropy_margin_raw": entropy_margin_raw,
+        "simd_efficiency": simd_efficiency,
+        "policy_budget_per_step": policy_budget_per_step,
+        "total_cycles": total_cycles,
+        "epochs_completed": epochs_completed,
+        "total_u_net_cycles": total_u_net_cycles,
+        "total_amortized_cu": total_amortized_cu,
+        "ledger_variance_tolerance_pct": LEDGER_VARIANCE_TOLERANCE_PCT,
+    }
+
+
 def execute_sentinel_clone_loop(
     title: str,
     prompt_text: str,
     policy_vec: list,
     simd_vec: list,
-    total_ephemeral_clones: int = EPHEMERAL_SWARM_COUNT
+    total_cycles: int = QUANTUM_CYCLE_DILATION
 ) -> dict:
-    np.random.seed(42)
-    goal_vec = [1.0, 0.8, -0.5, 1.2]
-    cov_matrix = [
+    rng = np.random.default_rng(42)
+    goal_vec = np.array([1.0, 0.8, -0.5, 1.2], dtype=float)
+    cov_matrix = np.array([
         [2.1, 0.4, 0.1, 0.0],
         [0.4, 1.8, 0.3, 0.1],
         [0.1, 0.3, 1.2, 0.2],
         [0.0, 0.1, 0.2, 1.9]
-    ]
-    target_prob_dist = [0.4, 0.3, 0.2, 0.1]
+    ], dtype=float)
+    target_prob_dist = np.array([0.4, 0.3, 0.2, 0.1], dtype=float)
 
     engine = UnifiedHeuristicEngine(
         goal_vector=goal_vec,
         covariance_matrix=cov_matrix,
         target_distribution=target_prob_dist,
-        k_constant=0.666,
+        k_constant=K_SCALING_CONSTANT,
         max_threshold=10.0
     )
 
-    poofed_clones = 0
-    surviving_clones = 0
+    simulated_states = goal_vec + rng.normal(0.0, 3.5, size=(total_cycles, 4))
+    simulated_prob_dists = rng.dirichlet(np.ones(4), size=total_cycles)
+
+    passed_mask, h_scaled, _, _, _ = engine.evaluate_batch_vectorized(simulated_states, simulated_prob_dists)
+    surviving_cycles = int(np.sum(passed_mask))
+    pruned_cycles = int(total_cycles - surviving_cycles)
+    max_observed_score = float(np.max(h_scaled)) if total_cycles > 0 else 0.0
+    mean_observed_score = float(np.mean(h_scaled)) if total_cycles > 0 else 0.0
+
+    # Automatic fallback circuit breaker if overclock exceeds hard limit or D_crit is breached
+    effective_oc = INTEGRITY_GUARD.ledger.overclock_factor
+    fallback_triggered = False
+    if effective_oc > HARD_OC_LIMIT or max_observed_score >= engine.d_crit:
+        effective_oc = 1.0
+        INTEGRITY_GUARD.ledger.overclock_factor = 1.0
+        fallback_triggered = True
 
     accepted = [
         {"name": "Sentinel_Tactical", "lens": "Operational Velocity & Execution Readiness", "confidence": 0.95, "critic": 0.10, "margin": 0.15},
         {"name": "Sentinel_Analyst", "lens": "Quantitative Convergence & First-Principles Logic", "confidence": 0.94, "critic": 0.12, "margin": 0.13},
         {"name": "Sentinel_Safety", "lens": "Risk Governance & Invariant Boundary Protection", "confidence": 0.98, "critic": 0.05, "margin": 0.20}
     ]
+
     dispelled = []
+    pruned_indices = np.flatnonzero(~passed_mask)[:5]
+    for idx in pruned_indices:
+        score_val = float(h_scaled[idx])
+        dispelled.append({
+            "name": f"Cycle_{int(idx) + 1}_Heuristic",
+            "lens": "Unified Heuristic Stress Divergence",
+            "confidence": round(max(0.5, 1.0 - (score_val / 20.0)), 4),
+            "critic": round(score_val, 4),
+            "excess_risk": round(max(0.0, score_val - engine.d_crit), 4)
+        })
 
-    for i in range(1, total_ephemeral_clones + 1):
-        simulated_state = goal_vec + np.random.normal(0, 3.5, size=4)
-        simulated_prob_dist = np.random.dirichlet(np.ones(4))
+    # Per-epoch (10,000-cycle) summary across 50,000 cycles (5 epochs)
+    epoch_summaries = []
+    num_epochs = max(1, total_cycles // CYCLES_PER_EPOCH)
+    for ep in range(num_epochs):
+        start_i = ep * CYCLES_PER_EPOCH
+        end_i = total_cycles if ep == num_epochs - 1 else (ep + 1) * CYCLES_PER_EPOCH
+        ep_mask = passed_mask[start_i:end_i]
+        ep_scores = h_scaled[start_i:end_i]
+        ep_len = max(1, end_i - start_i)
+        epoch_summaries.append({
+            "epoch": ep + 1,
+            "cycles": ep_len,
+            "passed": int(np.sum(ep_mask)),
+            "pruned": int(ep_len - np.sum(ep_mask)),
+            "pass_rate": round(float(np.mean(ep_mask)) * 100.0, 2),
+            "max_score": round(float(np.max(ep_scores)), 4),
+        })
 
-        result = engine.evaluate_shadow_clone(
-            clone_id=i,
-            state_vector=simulated_state,
-            p_distribution=simulated_prob_dist
-        )
-
-        if result["status"] == "POOF":
-            poofed_clones += 1
-            if len(dispelled) < 5:
-                dispelled.append({
-                    "name": f"Clone_{i}_Heuristic",
-                    "lens": "Unified Heuristic Stress Divergence",
-                    "confidence": round(max(0.5, 1.0 - (result["score"] / 20.0)), 4),
-                    "critic": round(float(result["score"]), 4),
-                    "excess_risk": round(float(result["score"] - engine.d_crit), 4)
-                })
-        else:
-            surviving_clones += 1
-
-    survival_rate = round((surviving_clones / max(1, total_ephemeral_clones)) * 100.0, 2)
-    k_const = 0.666
-    g_const = 9.80665
+    survival_rate = round((surviving_cycles / max(1, total_cycles)) * 100.0, 2)
+    thermo = compute_locked_thermodynamics(effective_oc, total_cycles)
 
     requires_physics = any(
         kw in (title + prompt_text).lower()
         for kw in [
             "physics", "quantum", "vacuum", "gravitational", "energy",
             "cosmogenesis", "astrophysics", "speed", "overclock",
-            "thermodynamics", "entropy", "enthalpy", "compute"
+            "thermodynamics", "entropy", "enthalpy", "compute", "dilation", "epoch"
         ]
     )
-    ugpe_metric = round(k_const * g_const * (len(prompt_text) % 10 + 1), 4) if requires_physics else None
-    ldow_metric = round((g_const / k_const) * 0.1, 4) if requires_physics else None
 
     return {
         "policy_vec": policy_vec,
         "effective_tau": round(float(engine.d_crit), 4),
         "accepted": accepted,
         "dispelled": dispelled,
-        "swarm_total": total_ephemeral_clones,
-        "swarm_passed": surviving_clones,
-        "swarm_dispelled": poofed_clones,
+        "swarm_total": total_cycles,
+        "swarm_passed": surviving_cycles,
+        "swarm_dispelled": pruned_cycles,
         "swarm_survival_rate": survival_rate,
+        "max_observed_score": round(max_observed_score, 4),
+        "mean_observed_score": round(mean_observed_score, 4),
+        "fallback_triggered": fallback_triggered,
+        "epoch_summaries": epoch_summaries,
+        "thermodynamics": thermo,
         "requires_physics": requires_physics,
-        "ugpe_metric": ugpe_metric,
-        "ldow_metric": ldow_metric,
+        "ugpe_metric": thermo["ugpe_flux"] if requires_physics else None,
+        "ldow_metric": thermo["ldow_ratio"] if requires_physics else None,
         "simd_vector": [round(float(x), 4) for x in simd_vec],
         "simd_norm": round(float(np.linalg.norm(simd_vec)), 4) if simd_vec else 1.0,
     }
@@ -570,40 +669,51 @@ def execute_sentinel_clone_loop(
 def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, prior_memories: list) -> str:
     endpoint = os.getenv("NVIDIA_ENDPOINT", NVIDIA_ENDPOINT)
     api_key = os.getenv("NVIDIA_API_KEY", NVIDIA_KEY)
+    thermo = sim_data["thermodynamics"]
 
     accepted_str = "\n".join(
         f"  - [{c['name']}] ({c['lens']}) [VERIFIED NOMINAL]: Confidence={c['confidence']}, Variance={c['critic']}, Safety Buffer=+{c['margin']}"
         for c in sim_data["accepted"]
     )
     dispelled_str = "\n".join(
-        f"  - [{c.get('name', 'Clone')}] ({c['lens']}) [HEURISTIC PRUNED / POOF]: Confidence={c['confidence']}, Score={c['critic']} >= D_crit ({sim_data['effective_tau']})"
+        f"  - [{c.get('name', 'Cycle')}] ({c['lens']}) [HEURISTIC PRUNED / POOF]: Confidence={c['confidence']}, Score={c['critic']} >= D_crit ({sim_data['effective_tau']})"
         for c in sim_data["dispelled"]
-    ) if sim_data["dispelled"] else "  - None (All standard heuristic paths successfully passed straight forward)."
+    ) if sim_data["dispelled"] else "  - None (All evaluated heuristic paths remained within D_crit)."
 
-    physics_str = ""
-    if sim_data["requires_physics"]:
-        physics_str = (
-            f"\n=== VERIFIED THERMODYNAMIC & CONTROL CONSTANTS ===\n"
-            f"- Universal Scaling Constant (k): 0.666\n"
-            f"- Earth Gravity Constant (g): 9.80665 m/s^2\n"
-            f"- UGPE Evaluated Flux: {sim_data['ugpe_metric']}\n"
-            f"- LDOW Overwrite Ratio: {sim_data['ldow_metric']}\n"
-        )
+    epochs_str = "\n".join(
+        f"  - Epoch {ep['epoch']} ({ep['cycles']} cycles): {ep['passed']} passed / {ep['pruned']} pruned ({ep['pass_rate']}%), max_score={ep['max_score']}"
+        for ep in sim_data["epoch_summaries"]
+    )
+
+    thermo_block = (
+        f"\n=== LOCKED THERMODYNAMIC & 50,000-CYCLE TELEMETRY ===\n"
+        f"- Universal Scaling Constant (k): {thermo['k']}\n"
+        f"- Earth Gravity Constant (g): {thermo['g']} m/s^2\n"
+        f"- UGPE Evaluated Flux: {thermo['ugpe_flux']}\n"
+        f"- LDOW Overwrite Ratio: {thermo['ldow_ratio']}\n"
+        f"- Dilation Ratio: 1:{thermo['dilation_ratio']} | Total Cycles: {thermo['total_cycles']} ({thermo['epochs_completed']} epochs @ {CYCLES_PER_EPOCH} cycles/epoch)\n"
+        f"- Overclock Factor: {thermo['overclock_factor']}x (Hard Limit: {thermo['hard_oc_limit']}x; Theoretical OC_max: {thermo['oc_max_theoretical']}x; Fallback Triggered: {sim_data['fallback_triggered']})\n"
+        f"- Q_in (UGPE * k): {thermo['q_in']} | W_out (LDOW * OC): {thermo['w_out']} | U_net (Q_in - W_out): {thermo['u_net']}\n"
+        f"- T_eff (g * k): {thermo['t_eff']} | Entropy Rate (dS/dt): {thermo['entropy_rate']} | Raw Entropy Margin (D_crit - dS/dt*D): {thermo['entropy_margin_raw']}\n"
+        f"- SIMD Efficiency: {thermo['simd_efficiency']} | Policy Budget/Step: {thermo['policy_budget_per_step']} | Total U_net ({thermo['total_cycles']} cycles): {thermo['total_u_net_cycles']} | Amortized CU: {thermo['total_amortized_cu']}\n"
+        f"- Epoch Breakdown:\n{epochs_str}\n"
+    )
 
     base_user_prompt = (
         f"SUBJECT TITLE: {title}\n"
         f"PROPOSITION / BUSINESS OBJECTIVE: {prompt_text}\n\n"
         f"=== ENTERPRISE AUDIT TELEMETRY & NAST / NIST GOVERNANCE DATA ===\n"
-        f"- Governance Guard Level: {INTEGRITY_GUARD.level} | Overclock Factor: {INTEGRITY_GUARD.ledger.overclock_factor}x\n"
-        f"- Evaluation Scenarios Probed: {sim_data['swarm_total']} Probes via UnifiedHeuristicEngine\n"
+        f"- Governance Guard Level: {INTEGRITY_GUARD.level}\n"
+        f"- Evaluation Cycles Probed: {sim_data['swarm_total']} Cycles via UnifiedHeuristicEngine\n"
         f"- Audit Consensus: {sim_data['swarm_passed']} Validated / {sim_data['swarm_dispelled']} Pruned (Pass Rate: {sim_data['swarm_survival_rate']}%)\n"
+        f"- Observed Heuristic Score: Mean={sim_data['mean_observed_score']}, Max={sim_data['max_observed_score']}\n"
         f"- Critical Collapse Boundary (D_crit): {sim_data['effective_tau']}\n"
         f"- Validated Governance Streams:\n{accepted_str}\n"
-        f"- Isolated Exceptions (Poofed):\n{dispelled_str}\n"
-        f"{physics_str}\n"
-        f"INSTRUCTION: Deliver a complete, untruncated corporate governance, thermodynamic, and NAST feasibility audit report for '{title}' and '{prompt_text}'. "
-        f"Use ONLY the numbers/constants provided above; do not invent outside benchmarks or constants. "
-        f"Finish every table row and every '- [ ]' checklist item in Section 5 completely. Use NIST sensor annotations in brackets. Do not output raw LaTeX '$' or '\\' characters."
+        f"- Sample Isolated Exceptions (Poofed):\n{dispelled_str}\n"
+        f"{thermo_block}\n"
+        f"INSTRUCTION: Deliver a complete, untruncated corporate governance, thermodynamic, and NAST audit report for '{title}' across {sim_data['swarm_total']} quantum cycles. "
+        f"Use the exact locked thermodynamic numbers provided above; do not invent outside constants or duplicate Section 5. "
+        f"Finish every table row and every '- [ ]' checklist item in Section 5 cleanly. Use NIST sensor annotations in brackets. Do not output raw LaTeX '$' or '\\' characters."
     )
 
     headers = {
@@ -613,7 +723,7 @@ def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, pri
     }
 
     session = requests.Session()
-    retries = Retry(total=2, backoff_factor=1.5, status_forcelist=[429, 500, 502, 503, 504], raise_on_status=False)
+    retries = Retry(total=1, backoff_factor=1.0, status_forcelist=[429, 500, 502, 503, 504], raise_on_status=False)
     session.mount("https://", HTTPAdapter(max_retries=retries))
 
     accumulated_content = ""
@@ -630,7 +740,7 @@ def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, pri
                     missing = INTEGRITY_GUARD.missing_sections(accumulated_content) if accumulated_content else []
                     continuation_instruction = (
                         f"\n\nEXISTING DRAFT (MISSING SECTIONS: {', '.join(missing) if missing else 'NONE — COMPLETE ANY CUTOFF AT END'}; "
-                        f"DO NOT REPEAT ALREADY COMPLETED SECTIONS OR TRUNCATE TABLES/CHECKLISTS; CONTINUE CLEANLY FROM THE END):\n{accumulated_content[-3500:]}"
+                        f"DO NOT REPEAT COMPLETED SECTIONS OR SECTION 5; CONTINUE CLEANLY FROM THE END):\n{accumulated_content[-3000:]}"
                         if accumulated_content else ""
                     )
                     payload = {
@@ -642,7 +752,7 @@ def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, pri
                         "temperature": stage_cfg["temperature"],
                         "max_tokens": max_toks
                     }
-                    response = session.post(endpoint, headers=headers, json=payload, timeout=(10, 180))
+                    response = session.post(endpoint, headers=headers, json=payload, timeout=(10, REQUEST_READ_TIMEOUT))
                     if response.status_code == 200:
                         content = response.json()["choices"][0]["message"]["content"].strip()
                         INTEGRITY_GUARD.ledger.record_pass(stage_cfg, len(content), round_idx)
@@ -669,6 +779,7 @@ def query_nvidia_nim_iterative(title: str, prompt_text: str, sim_data: dict, pri
 
 
 def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: dict) -> str:
+    thermo = sim_data["thermodynamics"]
     table_rows = [
         "| Operational Dimension | Corporate Assessment Focus | Evaluated Metric & Confidence | Governance Status |",
         "| --- | --- | --- | --- |",
@@ -682,49 +793,40 @@ def generate_local_corporate_fallback(title: str, prompt_text: str, sim_data: di
             f"| {c['name']} | {c['lens']} | Conf: {c['confidence']} / Score: {c['critic']} >= D_crit ({sim_data['effective_tau']}) | [Sentinel_Creative] POOFED |"
         )
 
-    physics_section = ""
-    if sim_data["requires_physics"]:
-        physics_section = (
-            "\n## 2.1 Thermodynamic & Control Telemetry ([Sentinel_Analyst])\n"
-            "- Universal Scaling Constant (k): 0.666\n"
-            "- Earth Gravity Constant (g): 9.80665 m/s^2\n"
-            f"- UGPE Evaluated Flux: {sim_data['ugpe_metric']}\n"
-            f"- LDOW Overwrite Index: {sim_data['ldow_metric']}\n"
-        )
-
     return "\n".join([
         f"# ENTERPRISE GOVERNANCE & THERMODYNAMIC REPORT: {title.upper()}",
         "**Classification**: EXECUTIVE STRATEGIC GOVERNANCE // NAST & TIER-1 COMPLIANCE",
-        "**Status**: AUDIT LOCKED // 9-STAGE GOVERNANCE ENGINE ENGAGED",
-        f"**Objective Benchmark**: Enterprise Viability | Evaluated Probes: {sim_data['swarm_total']} | Consensus Pass Rate: {sim_data['swarm_survival_rate']}%",
+        "**Status**: AUDIT LOCKED // STRATEGIC RESOLUTION ENGAGED",
+        f"**Objective SLA**: {sim_data['swarm_total']} Quantum Cycles ({thermo['epochs_completed']} Epochs) @ 1:{thermo['dilation_ratio']} Dilation | Pass Rate: {sim_data['swarm_survival_rate']}%",
         "",
         "## 1. EXECUTIVE FINDINGS & OPERATIONAL TELEMETRY ASSESSMENT ([Sentinel_Tactical])",
         f"**Business Proposition**: {prompt_text}",
-        f"An exhaustive enterprise audit evaluating **{sim_data['swarm_total']} operational scenarios** via UnifiedHeuristicEngine confirms that '{title}' achieves a **{sim_data['swarm_survival_rate']}% validation rate**.",
+        f"An enterprise audit evaluating **{sim_data['swarm_total']} cycles** ({thermo['epochs_completed']} epochs of {CYCLES_PER_EPOCH} cycles) via UnifiedHeuristicEngine records **{sim_data['swarm_passed']} validated** and **{sim_data['swarm_dispelled']} pruned** ({sim_data['swarm_survival_rate']}% pass rate) against D_crit = {sim_data['effective_tau']}.",
         "",
         *table_rows,
         "",
         "## 2. FIRST-PRINCIPLES THERMODYNAMICS & RESOURCE-CURRENCY SYNTHESIS ([Sentinel_Analyst])",
-        f"Compute currency is ledgered across passes at overclock factor {INTEGRITY_GUARD.ledger.overclock_factor}x with total compute spent = {INTEGRITY_GUARD.ledger.total_compute_currency_spent} and thermal load index = {INTEGRITY_GUARD.ledger.thermal_load_index}.",
-        physics_section,
+        f"- Constants: k = {thermo['k']}, g = {thermo['g']} m/s^2, UGPE = {thermo['ugpe_flux']}, LDOW = {thermo['ldow_ratio']}, D_crit = {D_CRIT_BOUNDARY}",
+        f"- Energy Balance: Q_in = {thermo['q_in']}, W_out = {thermo['w_out']}, U_net = {thermo['u_net']} at overclock {thermo['overclock_factor']}x (hard limit {thermo['hard_oc_limit']}x, theoretical OC_max = {thermo['oc_max_theoretical']}x)",
+        f"- Entropy & Ledger Totals: T_eff = {thermo['t_eff']}, dS/dt = {thermo['entropy_rate']}, raw entropy margin = {thermo['entropy_margin_raw']}, 50,000-cycle U_net = {thermo['total_u_net_cycles']}, amortized CU = {thermo['total_amortized_cu']}",
         "",
         "## 3. STRATEGIC EXECUTION PROTOCOL & 9-STAGE OPERATIONAL BLUEPRINT ([Sentinel_Safety])",
-        f"1. **Phase 1 — Baseline Deployment**: Initiate '{title}' within verified operational parameters, maintaining boundaries below `D_crit = {sim_data['effective_tau']}`.",
-        "2. **Phase 2 — Closed-Loop Governance**: Step across Stages 1–9 with continuation stitching whenever required sections or blocks remain incomplete.",
-        "3. **Phase 3 — Continuous Compliance**: Enforce strict NAST / NIST governance oversight across all active workstreams.",
+        f"1. **GOVERN & MAP (Stages 1–2)**: Lock D_crit = {sim_data['effective_tau']} and map AVX2 SIMD, DDPG, and 1:{thermo['dilation_ratio']} dilation dependencies.",
+        f"2. **MEASURE & MANAGE (Stages 3–6)**: Track {CYCLES_PER_EPOCH}-cycle epochs, enforce {thermo['hard_oc_limit']}x hard overclock throttle, and trigger fallback to 1.0x if breached.",
+        f"3. **GOVERN & SUSTAIN (Stages 7–9)**: Reconcile compute ledger within +/-{thermo['ledger_variance_tolerance_pct']}% every {AUDIT_EPOCHS} epochs ({sim_data['swarm_total']} cycles) with 10Hz heartbeat and 2/3 quorum.",
         "",
         "## 4. RISK MITIGATION & SUCCESS CRITERIA MATRIX ([Sentinel_Creative])",
         "| Strategic Metric | Target Threshold | Verification Methodology |",
         "| --- | --- | --- |",
-        f"| Operational Validation Rate | {sim_data['swarm_survival_rate']}% | UnifiedHeuristicEngine ({sim_data['swarm_total']} probes) |",
-        f"| Risk Threshold Adherence | < {sim_data['effective_tau']} | Continuous Governance Monitoring |",
+        f"| Cycle Validation Rate | {sim_data['swarm_survival_rate']}% across {sim_data['swarm_total']} cycles | UnifiedHeuristicEngine ({thermo['epochs_completed']} epochs) |",
+        f"| Risk Threshold & Ledger Variance | < {sim_data['effective_tau']} / <= {thermo['ledger_variance_tolerance_pct']}% | Sentinel telemetry & epoch audit reconciliation |",
         "",
         "## 5. FINAL EXECUTIVE VERDICT & IMMEDIATE ACTION CHECKLIST",
-        f"'{title}' is approved for controlled execution under enterprise governance.",
-        "- [ ] Authorize Phase 1 operational deployment.",
-        f"- [ ] Enforce risk governance ceiling at D_crit = {sim_data['effective_tau']}.",
-        "- [ ] Verify full table and checklist completion in generated artifacts.",
-        "- [ ] Schedule executive review of milestones."
+        f"'{title}' is evaluated across {sim_data['swarm_total']} quantum cycles under enterprise governance.",
+        "- [ ] Authorize Phase 1 operational deployment under governance guard.",
+        f"- [ ] Enforce risk governance ceiling at D_crit = {sim_data['effective_tau']} and overclock ceiling <= {thermo['hard_oc_limit']}x.",
+        f"- [ ] Reconcile compute-currency ledger within +/-{thermo['ledger_variance_tolerance_pct']}% across {AUDIT_EPOCHS} epochs.",
+        "- [ ] Schedule post-deployment review and audit sign-off."
     ])
 
 # ==============================================================================
@@ -734,7 +836,7 @@ def clean_raw_latex_artifacts(text: str) -> str:
     text = text.replace("$$", "")
     text = re.sub(r'\\(text|mathbf|mathbb|frac|approx|times|rightarrow|cdot|sigma|psi|tau|Delta)\b', '', text)
     text = re.sub(r'(?<!\\)\$', '', text)
-    text = text.replace("\\{", "{").replace("\\}", "}")
+    text = text.replace("\\_", "_").replace("\\{", "{").replace("\\}", "}")
     return text
 
 
@@ -877,7 +979,7 @@ def render_report_html(title: str, content: str, session_id: str, include_docume
         f"<div class='uesp-report-wrap'>"
         f"<div class='uesp-header-bar'><div class='uesp-brand'>CELSIUS TECH MEDIA GROUP</div><div>{html.escape(COMPANY_DETAILS).replace(chr(10), '<br/>')}</div></div>"
         f"<div class='uesp-meta-box'><strong>Session ID:</strong> {html.escape(session_id)} | <strong>Governance Guard:</strong> {html.escape(INTEGRITY_GUARD.level)} (Repairs: {INTEGRITY_GUARD.interventions}) | "
-        f"<strong>Compute Spent:</strong> {ledger.total_compute_currency_spent} | <strong>Thermal Load:</strong> {ledger.thermal_load_index} | <strong>Audit Probes:</strong> {EPHEMERAL_SWARM_COUNT}</div>"
+        f"<strong>Compute Spent:</strong> {ledger.total_compute_currency_spent} | <strong>Thermal Load:</strong> {ledger.thermal_load_index} | <strong>Cycles:</strong> {QUANTUM_CYCLE_DILATION}</div>"
         f"<h2>Subject: {html.escape(title)}</h2>"
         + "\n".join(body_parts)
         + "</div>"
@@ -900,7 +1002,7 @@ def generate_txt_artifact(filename: str, title: str, content: str, session_id: s
         f"Governance Guard: {INTEGRITY_GUARD.level} (Repairs: {INTEGRITY_GUARD.interventions})",
         f"Compute Spent  : {ledger.total_compute_currency_spent} | Thermal Load: {ledger.thermal_load_index}",
         f"Subject        : {title}",
-        f"Audit Scale    : {EPHEMERAL_SWARM_COUNT} Probes",
+        f"Cycle Scale    : {QUANTUM_CYCLE_DILATION} Cycles ({AUDIT_EPOCHS} Epochs @ {CYCLES_PER_EPOCH}/epoch)",
         "------------------------------------------------------------------------",
         ""
     ]
@@ -1000,6 +1102,18 @@ def split_long_code_line(line: str, max_len: int = 88) -> list:
     return chunks
 
 
+def _compute_table_col_widths(num_cols: int, usable_width: float) -> list:
+    weights_map = {
+        3: [0.26, 0.30, 0.44],
+        4: [0.20, 0.32, 0.28, 0.20],
+        6: [0.08, 0.17, 0.27, 0.22, 0.14, 0.12],
+    }
+    weights = weights_map.get(num_cols)
+    if weights and len(weights) == num_cols:
+        return [usable_width * w for w in weights]
+    return [usable_width / max(1, num_cols)] * num_cols
+
+
 def parse_markdown_to_story(text: str, story: list, styles: dict):
     lines = text.split('\n')
     usable_width = 7.0 * inch
@@ -1028,8 +1142,8 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
             for r in rows:
                 while len(r) < num_cols:
                     r.append(safe_p("", styles['TableCell']))
-            col_width = usable_width / max(1, num_cols)
-            t = Table(rows, colWidths=[col_width] * num_cols, repeatRows=1, splitByRow=1)
+            col_widths = _compute_table_col_widths(num_cols, usable_width)
+            t = Table(rows, colWidths=col_widths, repeatRows=1, splitByRow=1)
             t.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00796B')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
@@ -1207,7 +1321,7 @@ def generate_pdf_artifact(filename: str, title: str, content: str, session_id: s
         f"• Governance Guard: {INTEGRITY_GUARD.level} (Repairs Applied: {INTEGRITY_GUARD.interventions}) | Overclock: {ledger.overclock_factor}x\n"
         f"• Compute Currency Spent: {ledger.total_compute_currency_spent} | Thermal Load Index: {ledger.thermal_load_index}\n"
         f"• Knowledge Catalog: Registered ({len(NVIDIA_NIM_CATALOG)} Active Models) | 9-Stage Cascade Armed\n"
-        f"• Governance Audit Scale: {EPHEMERAL_SWARM_COUNT} Probes | NIST / NAST Sensor Annotations"
+        f"• Governance Audit Scale: {QUANTUM_CYCLE_DILATION} Cycles ({AUDIT_EPOCHS} Epochs) | NIST / NAST Sensor Annotations"
     )
     manifest_box = Table([[safe_p(manifest_text, styles['Manifest'])]], colWidths=[usable_width])
     manifest_box.setStyle(TableStyle([
@@ -1227,12 +1341,45 @@ def generate_pdf_artifact(filename: str, title: str, content: str, session_id: s
     return filename
 
 
-def generate_zip_artifact(zip_filename: str, pdf_filename: str, txt_filename: str) -> str:
+def generate_audit_json_artifact(filename: str, title: str, session_id: str, sim_data: dict) -> str:
+    payload = {
+        "session_id": session_id,
+        "title": title,
+        "governance_guard": INTEGRITY_GUARD.level,
+        "repairs_applied": INTEGRITY_GUARD.interventions,
+        "ledger": {
+            "total_compute_currency_spent": INTEGRITY_GUARD.ledger.total_compute_currency_spent,
+            "thermal_load_index": INTEGRITY_GUARD.ledger.thermal_load_index,
+            "calls_executed": INTEGRITY_GUARD.ledger.calls_executed,
+        },
+        "cycle_summary": {
+            "total_cycles": sim_data["swarm_total"],
+            "passed_cycles": sim_data["swarm_passed"],
+            "pruned_cycles": sim_data["swarm_dispelled"],
+            "pass_rate_pct": sim_data["swarm_survival_rate"],
+            "mean_observed_score": sim_data["mean_observed_score"],
+            "max_observed_score": sim_data["max_observed_score"],
+            "d_crit": sim_data["effective_tau"],
+            "fallback_triggered": sim_data["fallback_triggered"],
+            "epochs": sim_data["epoch_summaries"],
+        },
+        "thermodynamics": sim_data["thermodynamics"],
+    }
+    serialized = json.dumps(payload, indent=2)
+    payload["sha256_digest"] = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+    return filename
+
+
+def generate_zip_artifact(zip_filename: str, pdf_filename: str, txt_filename: str, json_filename: str = None) -> str:
     with zipfile.ZipFile(zip_filename, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         if os.path.exists(pdf_filename):
             zf.write(pdf_filename, arcname=os.path.basename(pdf_filename))
         if os.path.exists(txt_filename):
             zf.write(txt_filename, arcname=os.path.basename(txt_filename))
+        if json_filename and os.path.exists(json_filename):
+            zf.write(json_filename, arcname=os.path.basename(json_filename))
     return zip_filename
 
 # ==============================================================================
@@ -1254,7 +1401,7 @@ def process_and_run(title: str, issue_text: str):
         issue_text,
         policy_vec,
         simd_vec,
-        total_ephemeral_clones=EPHEMERAL_SWARM_COUNT
+        total_cycles=QUANTUM_CYCLE_DILATION
     )
 
     vector_store = LocalARMVectorStore()
@@ -1270,19 +1417,22 @@ def process_and_run(title: str, issue_text: str):
     short_id = session_id[:16]
     pdf_filename = f"Report_{short_id}.pdf"
     txt_filename = f"Report_{short_id}.txt"
+    json_filename = f"Audit_Ledger_{short_id}.json"
     zip_filename = f"Report_{short_id}.zip"
 
     generate_pdf_artifact(pdf_filename, title, report_content, session_id, full_html=full_html_doc)
     generate_txt_artifact(txt_filename, title, report_content, session_id)
-    generate_zip_artifact(zip_filename, pdf_filename, txt_filename)
+    generate_audit_json_artifact(json_filename, title, session_id, sim_data)
+    generate_zip_artifact(zip_filename, pdf_filename, txt_filename, json_filename)
 
     ledger = INTEGRITY_GUARD.ledger
     print(
         f"✅ Artifacts generated: {zip_filename} "
         f"[Guard={INTEGRITY_GUARD.level}, repairs={INTEGRITY_GUARD.interventions}, "
-        f"compute={ledger.total_compute_currency_spent}, thermal={ledger.thermal_load_index}] "
+        f"cycles={sim_data['swarm_total']}, compute={ledger.total_compute_currency_spent}, thermal={ledger.thermal_load_index}] "
         f"(PDF: {os.path.getsize(pdf_filename) if os.path.exists(pdf_filename) else 0}B, "
         f"TXT: {os.path.getsize(txt_filename) if os.path.exists(txt_filename) else 0}B, "
+        f"JSON: {os.path.getsize(json_filename) if os.path.exists(json_filename) else 0}B, "
         f"ZIP: {os.path.getsize(zip_filename) if os.path.exists(zip_filename) else 0}B)"
     )
 
@@ -1316,7 +1466,7 @@ def process_and_run(title: str, issue_text: str):
                 wp_body = (
                     f"{wp_html_fragment}\n\n"
                     f"<p><strong>ECTA Audit Token:</strong> <code>{html.escape(session_id)}</code></p>"
-                    f"<p><a href='{html.escape(media_source_url)}' target='_blank' rel='noopener'>📥 Download Full Artifact Bundle (ZIP: PDF + TXT)</a></p>"
+                    f"<p><a href='{html.escape(media_source_url)}' target='_blank' rel='noopener'>📥 Download Full Artifact Bundle (ZIP: PDF + TXT + JSON)</a></p>"
                 )
                 post_payload = {
                     "title": f"Governance Report: {title}",
