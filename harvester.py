@@ -533,6 +533,7 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
     table_buffer = []
     code_buffer = []
     in_code_block = False
+    max_code_lines_per_block = 35
 
     def flush_table():
         nonlocal table_buffer
@@ -570,22 +571,29 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
                 ('GRID', (0, 0), (-1, -1), 0.6, colors.HexColor('#80CBC4')),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#FFFFFF'), colors.HexColor('#E0F2F1')])
             ]))
-            story.append(KeepTogether([Spacer(1, 5), t, Spacer(1, 7)]))
+            story.append(Spacer(1, 5))
+            story.append(t)
+            story.append(Spacer(1, 7))
         table_buffer = []
 
     def flush_code():
         nonlocal code_buffer
         if not code_buffer:
             return
-        escaped_code = "<br/>".join(escape(cl).replace(" ", "&nbsp;") for cl in code_buffer)
-        p = Paragraph(escaped_code, styles['CodeBlock'])
-        t = Table([[p]], colWidths=[usable_width])
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F1F8E9')),
-            ('BOX', (0, 0), (-1, -1), 0.6, colors.HexColor('#80CBC4')),
-            ('PADDING', (0, 0), (-1, -1), 6)
-        ]))
-        story.append(KeepTogether([Spacer(1, 4), t, Spacer(1, 6)]))
+        # Chunk code lines so a single table row never exceeds page frame height
+        for idx in range(0, len(code_buffer), max_code_lines_per_block):
+            chunk = code_buffer[idx:idx + max_code_lines_per_block]
+            escaped_code = "<br/>".join(escape(cl).replace(" ", "&nbsp;") for cl in chunk)
+            p = Paragraph(escaped_code, styles['CodeBlock'])
+            t = Table([[p]], colWidths=[usable_width])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F1F8E9')),
+                ('BOX', (0, 0), (-1, -1), 0.6, colors.HexColor('#80CBC4')),
+                ('PADDING', (0, 0), (-1, -1), 6)
+            ]))
+            story.append(Spacer(1, 4))
+            story.append(t)
+            story.append(Spacer(1, 6))
         code_buffer = []
 
     for raw_line in lines:
@@ -601,7 +609,7 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
             continue
 
         if in_code_block:
-            code_buffer.append(raw_line.rstrip())
+            code_buffer.append(raw_line.rstrip('\r\n'))
             continue
 
         if line.startswith('|') and line.endswith('|'):
@@ -624,17 +632,20 @@ def parse_markdown_to_story(text: str, story: list, styles: dict):
             p = safe_p(f"• {line[2:]}", styles['Bullet'])
             t = Table([[p]], colWidths=[usable_width])
             t.setStyle(TableStyle([('LEFTPADDING', (0, 0), (-1, -1), 8), ('RIGHTPADDING', (0, 0), (-1, -1), 0)]))
-            story.append(KeepTogether([t, Spacer(1, 2)]))
+            story.append(t)
+            story.append(Spacer(1, 2))
         elif re.match(r'^\d+\.\s', line):
             p = safe_p(line, styles['Bullet'])
             t = Table([[p]], colWidths=[usable_width])
             t.setStyle(TableStyle([('LEFTPADDING', (0, 0), (-1, -1), 8), ('RIGHTPADDING', (0, 0), (-1, -1), 0)]))
-            story.append(KeepTogether([t, Spacer(1, 2)]))
+            story.append(t)
+            story.append(Spacer(1, 2))
         else:
             p = safe_p(line, styles['Body'])
             t = Table([[p]], colWidths=[usable_width])
             t.setStyle(TableStyle([('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0)]))
-            story.append(KeepTogether([t, Spacer(1, 3)]))
+            story.append(t)
+            story.append(Spacer(1, 3))
 
     flush_table()
     flush_code()
